@@ -26,7 +26,7 @@ my $input_file;
 my $output_file;
 
 GetOptions(
-	"output|o=s" => \$output) or die "Getopt failed: $!";
+	"output|o=s" => \$output_file) or die "Getopt failed: $!";
 $input_file = shift @ARGV;
 die "Input file required" unless ($input_file);
 die "Output file required" unless ($output_file);
