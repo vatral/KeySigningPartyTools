@@ -1,0 +1,209 @@
+#!/usr/bin/perl -w
+# Key signature mass importer
+# Copyright (C) 2013 Vadim Troshchinskiy <me@vadim.ws>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#   
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+use strict;
+use Mail::Box::Manager;
+use Crypt::GPG;
+use File::Temp;
+use MIME::Parser;
+use Data::Dumper qw(Dumper);
+use Getopt::Long qw(:config no_ignore_case);
+use Term::ReadKey;
+
+my ($mbox, $own_address, $secret_key, $imap, $imaps, $pop3, $gmail);
+my ($username, $password, $port);
+
+my $folder_name = "INBOX";
+
+GetOptions(
+	"mbox|m=s"        => \$mbox,
+	"imap=s"          => \$imap,
+	"imaps=s"         => \$imaps,
+	"pop3=s"          => \$pop3,
+	"gmail=s"         => \$gmail,
+	"username|u=s"    => \$username,
+	"password|p=s"    => \$password,
+	"port|P=s"        => \$port,
+	"folder|f=s"      => \$folder_name,
+	"own-address|o=s" => \$own_address,
+	"secret-key|k=s"  => \$secret_key,
+) or die "Getopt failed: $!";
+
+
+my $folder;
+
+if ( $gmail ) {
+	$username = $gmail;
+	$imaps    = "imap.gmail.com";
+	$port     = 993;
+
+	if ( $username !~ /@/ ) {
+		$username .= "\@gmail.com"
+	}
+}
+
+unless ( $secret_key ) {
+	# TODO: Get key automatically. Crypt::GPG can't seem to
+	# manage on its own.
+	die "Please specify your secret key with --secret-key";
+}
+
+unless ( $password ) {
+	$password = get_pass();
+}
+
+if ( $imaps || $imap ) {
+	$port //= $imaps ? 993 : 143;
+
+	my %options = (
+	    username    => $username,
+	    password    => $password,
+	    server_name => $imaps,
+	    server_port => $port,
+	    folder      => $folder_name,
+	    cache_body  => 'NO',
+	    cache_head  => 'NO',
+	    cache_labels => 'NO',
+	    trace => 5);
+
+	if ( $imaps ) {
+		eval {
+			require Mail::Box::IMAP4::SSL;
+		};
+		if ( $@ ) {
+			die "Error: $@\n\n" . 
+			    "Failed to load Mail::Box::IMAP4::SSL. You probably don't have it installed. Try:\n" .
+			    "sudo cpan Mail::Box::IMAP4::SSL";
+		}
+		$folder = new Mail::Box::IMAP4::SSL(%options);
+	} else {
+		$folder = new Mail::Box::IMAP4(%options);
+	}
+
+} elsif ( $pop3 ) {
+	$port //= 110;
+
+	$folder = new Mail::Box::POP3(
+	    username    => $username,
+	    password    => $password,
+	    server_name => $pop3,
+	    server_port => $port );
+} elsif ( $mbox ) {
+	my $mgr = Mail::Box::Manager->new();
+	$folder = $mgr->open( folder => $mbox );
+} else {
+	die "Need a mailbox to read mail from";
+}
+
+my $gpg = new Crypt::GPG;
+$gpg->gpgbin('/usr/bin/gpg');
+$gpg->secretkey($secret_key);
+#$gpg->debug(1);
+
+
+my $passphrase;
+
+
+
+foreach my $message ($folder->messages) {	
+	my ($f) = $message->from;
+	my ($t) = $message->to;
+
+	if ( $f && $t ) {	
+		print "msg: '" . $message->subject . "' from " . $f->format . " to " . $t->format . "\n";
+	} else {
+		print "msg: '" . $message->subject . "' seems to lack from/to information. Skipping.\n";
+		next;
+	}
+	
+	if ( $own_address && $f->format =~ /$own_address/ ) {
+		print "\tMail from myself, skipping\n";
+		next;
+	}
+	
+	if ( $message->subject !~ /Your signed PGP key/ ) {
+		print "\tNot a PGP key email, skipping\n";
+		next;
+	}
+	
+	if ( ! $message->isMultipart() ) {
+		print "\tNo attachments, skipping\n";
+		next;
+	}
+	
+	
+	print "\tAttachments: " . scalar $message->parts() . "\n";
+	foreach my $part ( $message->parts ) {
+	
+		my $decoded = $part->decoded;
+		if ( $decoded =~ /^-----BEGIN PGP MESSAGE-----/m ) {
+			print "\tPGP message\n";
+			handle_message( $decoded );
+		} else {
+			print "\tIgnoring attachment\n";
+		}
+		
+	}
+	
+}
+
+sub handle_message {
+	my ($message) = @_;
+	#warn "decrypting: $message";
+	
+#	$gpg->passphrase($passphrase);
+	my @lines = split(/\n/, $message);
+	my ($plaintext, $sig) = $gpg->verify($message);
+	
+	if ( !defined $plaintext ) {
+		die "Failed to decrypt";
+	}
+	
+	
+	my $parser = MIME::Parser->new( );
+	$parser->output_to_core(1);
+	
+	my $message2 = $parser->parse_data($plaintext);
+	my $num_parts = $message2->parts;
+	
+	for (my $i=0; $i < $num_parts; $i++) {
+		my $part         = $message2->parts($i);
+		my $content_type = $part->mime_type;
+		my $body         = $part->stringify_body();
+		
+		print "==ATT $i: $content_type ==\n";
+		if ( $content_type eq "application/pgp-keys" ) {
+			my @keys = $gpg->addkey($body, 0);
+			foreach my $k (@keys) {
+				print "Added key: " . $k->{ID} . "\n";
+				#. Dumper($k) . "\n";
+			}
+		}
+	}
+}
+
+sub get_pass {
+	print "Password: ";
+	ReadMode('noecho');
+	my $password = ReadLine(0);
+	chomp $password;
+	ReadMode('restore');
+	print "\n";
+	return $password;
+}
+ 
