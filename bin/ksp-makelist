@@ -25,6 +25,8 @@ use Getopt::Long;
 my $input_file;
 my $output_file;
 
+my $prev_length = 0;
+
 GetOptions(
 	"output|o=s" => \$output_file) or die "Getopt failed: $!";
 $input_file = shift @ARGV;
@@ -37,12 +39,39 @@ $| = 1;
 my $list = new KeySigningParty::KeyList::FOSDEM();
 $list->load($input_file);
 
-foreach my $ent (@{$list->entries}) {
-	print $ent->as_string . "\n";
-}
-
 my $qr   = new KeySigningParty::VisualHash::QRCode();
 my $vash = new KeySigningParty::VisualHash::Vash();
 
 my $out = new KeySigningParty::Output::PDF( list => $list, visual_hashes => [ $qr, $vash ] );
+$out->starting_hook( \&starting );
+$out->progress_hook( \&progress );
+$out->finalizing_hook( \&finalizing );
 $out->generate($output_file);
+status("Done.");
+print "\n";
+
+
+sub starting {
+	status("Starting...");
+}
+sub progress {
+	my ($pdf, $page_num, $pages_total, $line_num, $lines_total) = @_;
+	my $percent = sprintf("%.2f", (100/$lines_total) * $line_num);
+	
+	status("Processing page $page_num of $pages_total, line $line_num of $lines_total, ${percent}% done.");
+}
+sub finalizing {
+	status("Finalizing...");
+}
+
+sub status {
+	my $text = shift;
+	print "\r$text";
+	
+	if ( length($text) < $prev_length ) {
+		print " " x ( $prev_length - length($text) );
+		print "\r$text";
+	}
+	
+	$prev_length = length($text);
+}

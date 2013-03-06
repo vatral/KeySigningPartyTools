@@ -43,6 +43,10 @@ sub generate {
 
 	
 	my $page_info = {};
+	my $total_elements = 0;
+	
+	$self->starting_hook->($self) if ( $self->starting_hook );
+	
 	
 	for(my $draw_elements=0;$draw_elements<2;$draw_elements++) {
 		# Loop through the entire dataset twice. On the first go, we calculate
@@ -59,7 +63,7 @@ sub generate {
 		my $page_num = 0;
 		
 		foreach my $ent ( @{$self->list->entries} ) {
-			print ".";
+			#print ".";
 
 			my $page_elem = new KeySigningParty::Output::PDF::Element::Key( pdf           => $pdf, 
 											number        => $line_num, 
@@ -89,7 +93,7 @@ sub generate {
 				$y = $ury - $self->margin;
 				
 				
-				print "\n";
+				#print "\n";
 				
 				my $hdr = new KeySigningParty::Output::PDF::Element::Header ( pdf           => $pdf,
 											page          => $page_num,
@@ -103,8 +107,13 @@ sub generate {
 
 			if ( $draw_elements ) {
 				$page_elem->draw($page, $x, $y);
+				
+				if ( $self->progress_hook ) {
+					$self->progress_hook->($self, $page_num, scalar keys %$page_info, $line_num, $total_elements);
+				}
 			} else {
 				$page_info->{$page_num}->{'last'} = $ent->number;
+				$total_elements++;
 			}
 			$line_num++;
 			
@@ -112,6 +121,8 @@ sub generate {
 					
 		}
 	}
+	
+	$self->finalizing_hook->($self) if ( $self->finalizing_hook );
 	
 	$pdf->save();
 	$pdf->end();

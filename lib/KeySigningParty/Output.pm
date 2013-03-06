@@ -24,6 +24,10 @@ use version; our $VERSION = qv('0.0.3');
 has 'list'          => ( is => 'rw', isa => 'KeySigningParty::KeyList' );
 has 'visual_hashes' => ( is => 'rw', isa => 'ArrayRef[KeySigningParty::VisualHash]' );
 
+has 'starting_hook' => ( is => 'rw', isa => 'CodeRef' );
+has 'progress_hook'   => ( is => 'rw', isa => 'CodeRef' );
+has 'finalizing_hook' => ( is => 'rw', isa => 'CodeRef' );
+
 sub generate {
 }
 
