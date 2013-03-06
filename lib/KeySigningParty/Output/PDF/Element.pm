@@ -30,6 +30,9 @@ has 'textcolor'  => ( is => 'rw', isa => 'Str', default => 'black' );
 has 'pdf'        => ( is => 'rw', isa => 'PDF::API2' );
 has 'margin'     => ( is => 'rw', isa => 'Num', default => 0 );
 
+# TODO: calculate based on font size
+has 'line_height' => ( is => 'ro', isa => 'Num', default => 10 );
+
 sub get_height {
 	return 0;
 }
@@ -37,5 +40,18 @@ sub get_height {
 sub draw {
 
 }
+
+
+sub _text {
+	my ($self, $page, $x, $y, $str) = @_;
+	my $text = $page->text;
+	my $font = $self->pdf->corefont( $self->font );
+	
+	$text->font($font, $self->font_size);
+	$text->translate($x, $y);
+	$text->fillcolor($self->textcolor);
+	$text->text($str);
+}
+
 
 1;

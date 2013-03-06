@@ -23,6 +23,7 @@ use version; our $VERSION = qv('0.0.3');
 use KeySigningParty::KeyList;
 use PDF::API2;
 use KeySigningParty::Output::PDF::Element::Key;
+use KeySigningParty::Output::PDF::Element::Header;
 
 extends 'KeySigningParty::Output';
 
@@ -33,44 +34,83 @@ has 'paper'      => ( is => 'rw', isa => 'Str', default => 'A4' );
 sub generate {
 	my ($self, $filename) = @_;
 	
-	my $pdf = new PDF::API2( -file => $filename);
+	my $pdf;
 	my $page;
 	my ($llx, $lly, $urx, $ury);
 	my ($x, $y, $w, $h);
 	
-	$pdf->mediabox($self->paper);
-
-	my $line_num = 1;
 	
-	foreach my $ent ( @{$self->list->entries} ) {
-		print ".";
 
-		my $page_elem = new KeySigningParty::Output::PDF::Element::Key( pdf           => $pdf, 
-		                                                                number        => $line_num++, 
-		                                                                entry         => $ent,
-		                                                                visual_hashes => $self->visual_hashes);
+	
+	my $page_info = {};
+	
+	for(my $draw_elements=0;$draw_elements<2;$draw_elements++) {
+		# Loop through the entire dataset twice. On the first go, we calculate
+		# how many pages we're going to get, and how many keys are going to fit
+		# on each page.
+		#
+		# On the second go, we draw them.
+		$pdf = new PDF::API2( -file => $filename);
+ 		$pdf->mediabox($self->paper);
+		undef $page;
+# 		
+		#my $draw_elements = ($loop == 1);
+		my $line_num = 1;
+		my $page_num = 0;
 		
-		if ( $page ) {
-			if ( ($y - $page_elem->get_height - $self->margin ) < $lly ) {
-				undef $page;
-			}
-		}
-		
-		if ( !$page ) {
-			$page = $pdf->page();
+		foreach my $ent ( @{$self->list->entries} ) {
+			print ".";
 
-			($llx, $lly, $urx, $ury) = $page->get_mediabox;
-			$h = $urx - $llx;
-			$w = $ury - $lly;
-			$x = $self->margin;
-			$y = $ury - $self->margin;
+			my $page_elem = new KeySigningParty::Output::PDF::Element::Key( pdf           => $pdf, 
+											number        => $line_num, 
+											entry         => $ent,
+											visual_hashes => $self->visual_hashes);
 			
-			print "\n";
-		}
-
-		$page_elem->draw($page, $x, $y);
-		$y -= $page_elem->get_height;
+			if ( $page ) {
+				if ( ($y - $page_elem->get_height - $self->margin ) < $lly ) {
+					undef $page;
+				}
+			}
+			
+			if ( !$page ) {
+				$page = $pdf->page();
+				$page_num++;
 				
+				if ( !$draw_elements ) {
+					$page_info->{$page_num} = {
+						first => $ent->number
+					};
+				}
+				
+				($llx, $lly, $urx, $ury) = $page->get_mediabox;
+				$h = $urx - $llx;
+				$w = $ury - $lly;
+				$x = $self->margin;
+				$y = $ury - $self->margin;
+				
+				
+				print "\n";
+				
+				my $hdr = new KeySigningParty::Output::PDF::Element::Header ( pdf           => $pdf,
+											page          => $page_num,
+											first_number  => ($draw_elements ? $page_info->{$page_num}->{'first'} : 0),
+											last_number   => ($draw_elements ? $page_info->{$page_num}->{'last'} : 0));
+											
+				$hdr->draw($page, $x, $y) if ( $draw_elements );
+				$y -= $hdr->get_height;
+				
+			}
+
+			if ( $draw_elements ) {
+				$page_elem->draw($page, $x, $y);
+			} else {
+				$page_info->{$page_num}->{'last'} = $ent->number;
+			}
+			$line_num++;
+			
+			$y -= $page_elem->get_height;
+					
+		}
 	}
 	
 	$pdf->save();

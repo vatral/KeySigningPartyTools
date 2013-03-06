@@ -23,11 +23,33 @@ use Moose;
 use version; our $VERSION = qv('0.0.3');
 extends 'KeySigningParty::Output::PDF::Element';
 
+has 'page'         => ( is => 'rw', isa => 'Num', default => 0 );
+has 'first_number' => ( is => 'rw', isa => 'Num', default => 0 );
+has 'last_number'  => ( is => 'rw', isa => 'Num', default => 0 );
+
 sub get_height {
-	return 10;
+	my $self = shift;
+	return $self->line_height * 2;
 }
 
 sub draw {
+	my ( $self, $page, $x, $y ) = @_;
+	
+	my ($llx, $lly, $urx, $ury) = $page->get_mediabox;
+	my $w = $urx - $llx;
+	my $h = $ury - $lly;
+
+	my $content_width = $w - ($x*2);
+	
+
+	my $box = $page->gfx;
+	# Text coordinates go by the lower left corner. We have to cover that line too,
+	# so shift everything one line up
+	$box->rect( $x, $y + $self->line_height, $content_width, -$self->line_height );
+	$box->fillcolor($self->fillcolor);
+	$box->fill;
+
+	$self->_text($page, $x, $y, $self->page . " (" . $self->first_number . " to " . $self->last_number . ")");
 
 }
 
