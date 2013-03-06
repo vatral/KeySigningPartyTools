@@ -26,7 +26,6 @@ extends 'KeySigningParty::Output::PDF::Element';
 
 has 'number'      => ( is => 'rw', isa => 'Num', default => 0 );
 has 'entry'       => ( is => 'rw', isa => 'KeySigningParty::KeyList::Entry' );
-has 'line_height' => ( is => 'ro', isa => 'Num', default => 10 );
 has 'num_width'   => ( is => 'ro', isa => 'Num', default => 40 );
 has 'uid_width'   => ( is => 'ro', isa => 'Num', default => 120 );
 has 'image_size'  => ( is => 'ro', isa => 'Num', default => 30 );
@@ -103,14 +102,4 @@ sub draw {
 	}
 }
 
-sub _text {
-	my ($self, $page, $x, $y, $str) = @_;
-	my $text = $page->text;
-	my $font = $self->pdf->corefont( $self->font );
-	
-	$text->font($font, $self->font_size);
-	$text->translate($x, $y);
-	$text->fillcolor($self->textcolor);
-	$text->text($str);
-}
 1;
