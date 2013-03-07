@@ -36,8 +36,7 @@ __END__
 
 =head1 NAME
 
-KeySigningParty - [One line description of module's purpose here]
-
+KeySigningParty - Key signing party list generator
 
 =head1 VERSION
 

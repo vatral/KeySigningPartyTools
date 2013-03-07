@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
 # Key signature mass importer
 # Copyright (C) 2013 Vadim Troshchinskiy <me@vadim.ws>
 #
@@ -17,6 +17,7 @@
 
 
 use strict;
+use warnings;
 use Mail::Box::Manager;
 use Crypt::GPG;
 use File::Temp;
