@@ -18,6 +18,6 @@ Running
 
 Programs can be run in place, like this:
 
-  perl -Ilib bin/ksp-makelist 
+  perl ./bin/ksp-makelist
 
 
