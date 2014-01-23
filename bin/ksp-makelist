@@ -27,11 +27,14 @@ use Getopt::Long;
 
 my $input_file;
 my $output_file;
+my $output_format = "PDF";
 
 my $prev_length = 0;
 
 GetOptions(
-	"output|o=s" => \$output_file) or die "Getopt failed: $!";
+	"output|o=s" => \$output_file,
+        "format|f=s" => \$output_format) or die "Getopt failed: $!";
+
 $input_file = shift @ARGV;
 die "Input file required" unless ($input_file);
 die "Output file required" unless ($output_file);
@@ -45,7 +48,18 @@ $list->load($input_file);
 my $qr   = new KeySigningParty::VisualHash::QRCode();
 my $vash = new KeySigningParty::VisualHash::Vash();
 
-my $out = new KeySigningParty::Output::PDF( list => $list, visual_hashes => [ $qr, $vash ] );
+#my $out = new KeySigningParty::Output::PDF( list => $list, visual_hashes => [ $qr, $vash ] );
+
+my $out = create_object("KeySigningParty::Output::$output_format", "KeySigningParty::Output");
+
+$out->list( $list );
+
+if ( $out->isa("KeySigningParty::Output::PDF") ) {
+	# HACK, FIXME!
+	$out->visual_hashes( [ $qr, $vash ] );
+}
+
+
 $out->starting_hook( \&starting );
 $out->progress_hook( \&progress );
 $out->finalizing_hook( \&finalizing );
@@ -78,3 +92,25 @@ sub status {
 	
 	$prev_length = length($text);
 }
+
+sub create_object {
+	my ($class, $base) = @_;
+	my $ret;
+	
+	eval "use $class;";
+	if ( $@ ) {
+		die "Can't load class $class: $@";
+	}
+
+	$ret = eval "new $class()";
+	if ( $@ ) {
+		die "Can't create an instance of $class: $@";
+	} elsif (!$ret) {
+		die "'new' method didn't return a value";
+	} elsif (! $ret->isa($base)) {
+		die "$ret isn't an object of type $base\n";
+	}
+	
+	return $ret;
+}
+
