@@ -1,0 +1,195 @@
+#!/usr/bin/env perl
+# Key signing party list generator
+# Copyright (C) 2013 Vadim Troshchinskiy <me@vadim.ws>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#   
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use KeySigningParty::KeyList::FOSDEM;
+use Barcode::ZBar;
+use Getopt::Long;
+
+my %scanned;
+my ($opt_resume, $opt_speak, $opt_videodev);
+my ($cmd_help);
+my $output_file;
+
+
+GetOptions("output|o=s"    => \$output_file,
+           "resume|r"      => \$opt_resume,
+           "speak|s"       => \$opt_speak,
+           "videodev|v=s"  => \$opt_videodev,
+           "help|h"        => \$cmd_help
+	) or die "Getopt failed: $!";
+
+my $input_file = shift @ARGV;
+
+
+if ( $cmd_help ) {
+	print <<HELP;
+Usage: $0 [arguments] <input file>
+
+This program is used to create a list of keys to sign after a key signing
+party performed following the Zimmermann–Sassaman key-signing protocol.
+
+Options:
+	-h, --help           Show this text
+	-o, --output file    Where to write the resulting list
+	-r, --resume         Don't overwrite the output file, but add to it
+	-s, --speak          Use text to speech to provide a status report
+
+
+HELP
+exit(0);
+}
+
+
+die "Input file required" unless ($input_file);
+die "Output file required" unless ($output_file);
+
+my $out;
+my @write_buf;
+my $write_count = 0;
+
+if ( $opt_resume ) {
+	# Read the whole file, and filter all the fingerprints through the
+	# normal checking process before continuing.
+	open($out, '+<', $output_file) or die "Can't open $output_file: $!";
+	my @lines = <$out>;
+	chomp @lines;
+
+	# For safety, we first process the whole file, and write it out
+	# only if everything goes fine.
+	foreach my $line (@lines) {
+		my ($id, $fp, $name) = split(/:/, $line);
+		handle_fingerprint($fp, quiet => 1, no_flush => 1);
+	}
+
+	unless(scalar @write_buf) {
+		die "Found no valid entries in file, aborting";
+	}
+
+	truncate($out, 0);
+	flush_buf();
+
+} else {
+	open($out, '>', $output_file) or die "Can't open $output_file: $!";
+}
+
+$| = 1;
+my $list = new KeySigningParty::KeyList::FOSDEM();
+$list->load($input_file);
+
+
+my $zbar = new Barcode::ZBar::Processor();
+if ( $opt_videodev ) {
+	$zbar->init($opt_videodev);
+} else {
+	$zbar->init;
+}
+
+$zbar->set_data_handler(\&on_scan);
+
+$zbar->set_visible();
+$zbar->set_active();
+$zbar->user_wait();
+
+
+close $out;
+
+if ( $write_count == 0 ) {
+	print "No keys were read\n";
+	unlink $output_file;
+}
+
+
+sub on_scan {
+	my ($zbar) = @_;
+	my @syms = $zbar->get_results;
+	
+	print "Symbols scanned\n";
+	foreach my $sym (@syms) {
+		my $data = $sym->get_data;
+
+	        print("decoded: " . $sym->get_type() . ":" . $sym->get_data() . "\n");
+
+		if ( $sym->get_type ne "QR-Code" ) {
+			print "Not a QR code, skipping\n";
+			speak("Not a QR code");
+			next;
+		}
+
+		if ( $data !~ /^[0-9A-F]{40}$/ ) {
+			print "Not a fingerprint, wrong characters or bad length\n";
+			speak("Not a fingerprint");
+			next;
+		}
+
+		handle_fingerprint($data);
+	}
+
+}
+
+
+sub handle_fingerprint {
+	my ($fp, %opts) = @_;
+
+	foreach my $key ( @{$list->entries}) {
+		if ( $key->fingerprint_ns eq $fp ) {
+			my $name = $key->uids->[0];
+
+			if ( exists $scanned{$fp} ) {
+				speak("Duplicate: $name") unless $opts{quiet};
+				return;
+			}
+
+
+			$scanned{$fp} = $key;
+			push @write_buf, [$key->long_id, $key->fingerprint, $name];
+
+			flush_buf() unless ($opts{no_flush});
+		
+			unless( $opts{quiet} ) {
+				print "===========================================================\n";
+				print "ID  : " . $key->long_id . "\n";
+				print "Type: " . $key->size . $key->keytype . "\n";
+				print "Name: $name\n";
+				print "===========================================================\n";
+
+				speak("Added: $name");
+			}
+		
+			return;
+		}
+	}
+
+	print "Fingerprint $fp didn't match any keys\n";
+}
+
+sub flush_buf {
+	foreach my $ent ( @write_buf ) {
+		my @filtered = map { s/://g } @$ent;
+		print $out join(':', @filtered) . "\n";
+	}
+
+	@write_buf = ();
+	$write_count++;
+}
+
+sub speak {
+
+}
