@@ -28,6 +28,7 @@ my ($opt_resume, $opt_speak, $opt_videodev);
 my ($cmd_help);
 my $output_file;
 
+$| = 1;
 
 GetOptions("output|o=s"    => \$output_file,
            "resume|r"      => \$opt_resume,
@@ -64,6 +65,11 @@ die "Output file required" unless ($output_file);
 my $out;
 my @write_buf;
 my $write_count = 0;
+my $espeak;
+
+my $list = new KeySigningParty::KeyList::FOSDEM();
+$list->load($input_file);
+
 
 if ( $opt_resume ) {
 	# Read the whole file, and filter all the fingerprints through the
@@ -76,6 +82,7 @@ if ( $opt_resume ) {
 	# only if everything goes fine.
 	foreach my $line (@lines) {
 		my ($id, $fp, $name) = split(/:/, $line);
+		$fp =~ s/\s+//g;
 		handle_fingerprint($fp, quiet => 1, no_flush => 1);
 	}
 
@@ -90,9 +97,11 @@ if ( $opt_resume ) {
 	open($out, '>', $output_file) or die "Can't open $output_file: $!";
 }
 
+
+# Autoflush, don't lose data on Ctrl+C
+my $old_sel = select($out);
 $| = 1;
-my $list = new KeySigningParty::KeyList::FOSDEM();
-$list->load($input_file);
+select($old_sel);
 
 
 my $zbar = new Barcode::ZBar::Processor();
@@ -153,7 +162,7 @@ sub handle_fingerprint {
 			my $name = $key->uids->[0];
 
 			if ( exists $scanned{$fp} ) {
-				speak("Duplicate: $name") unless $opts{quiet};
+				speak("Duplicate: " . spoken_name($name)) unless $opts{quiet};
 				return;
 			}
 
@@ -170,7 +179,7 @@ sub handle_fingerprint {
 				print "Name: $name\n";
 				print "===========================================================\n";
 
-				speak("Added: $name");
+				speak("Added: " . spoken_name($name));
 			}
 		
 			return;
@@ -182,7 +191,7 @@ sub handle_fingerprint {
 
 sub flush_buf {
 	foreach my $ent ( @write_buf ) {
-		my @filtered = map { s/://g } @$ent;
+		my @filtered = map { s/://g; $_; } @$ent;
 		print $out join(':', @filtered) . "\n";
 	}
 
@@ -191,5 +200,21 @@ sub flush_buf {
 }
 
 sub speak {
+	my ($text) = @_;
 
+	return unless ($opt_speak);
+
+	unless($espeak) {
+		require Speech::eSpeak;
+		$espeak = new Speech::eSpeak;
+	}
+
+	$espeak->speak($text);
+
+}
+
+sub spoken_name {
+	my ($name) = @_;
+	$name =~  s/<.*>//g; # Remove email address
+	return $name;
 }
