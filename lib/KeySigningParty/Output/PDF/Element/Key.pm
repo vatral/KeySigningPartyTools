@@ -67,13 +67,14 @@ sub draw {
 	# Key ID and fingerprint
 	$self->_text($page, $x, $y, $self->entry->number);
 	$self->_text($page, $x+$self->num_width, $y, $self->entry->size . $self->entry->keytype . "/" . $self->entry->id);
-	$self->_text($page, $x+$self->num_width+$self->uid_width, $y, $self->entry->fingerprint . " [ ] OK");
+	$self->_text($page, $x+$self->num_width+$self->uid_width, $y, $self->entry->fingerprint . " [ ] Fingerprint OK");
+	$self->_text($page, $x+$self->num_width+$self->uid_width, $y-10, (" " x length($self->entry->fingerprint)) . " [ ] ID OK"); # FIXME: UGLY!!
 
 	# UIDs
 	my $saved_y = $y;
 	foreach my $uid ( @{ $self->entry->uids } ) {
 		$y -= 10;
-		$self->_text($page, $x+$self->num_width, $y, "[ ] $uid");
+		$self->_text($page, $x+$self->num_width, $y, "$uid");
 	}
 	$y = $saved_y;
 
