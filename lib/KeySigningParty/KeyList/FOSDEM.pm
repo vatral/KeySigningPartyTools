@@ -41,9 +41,10 @@ sub load {
 	open(my $fh, "<:encoding(UTF-8)", $filename) or die "Can't read $filename: $!";
 	
 	my $entry = new KeySigningParty::KeyList::FOSDEM::Entry();
-	
+	my $data = "";	
+
 	while(my $line = <$fh>) {
-	
+		$data .= $line;
 		chomp $line;
 	
 		if ( $line =~ /^-----/ ) {
@@ -68,7 +69,7 @@ sub load {
 		}
 	}
 
-	
+	$self->_compute_digests($data);
 }
 
 1; # Magic true value required at end of module
