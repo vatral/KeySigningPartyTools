@@ -24,7 +24,7 @@ use PDF::API2;
 use version; our $VERSION = qv('0.0.3');
 
 has 'font'       => ( is => 'rw', isa => 'Str', default => 'Courier' );
-has 'font_size'  => ( is => 'rw', isa => 'Num', default => 9 );
+has 'font_size'  => ( is => 'rw', isa => 'Num', default => 8 );
 has 'fillcolor'  => ( is => 'rw', isa => 'Str', default => 'lightgrey' );
 has 'textcolor'  => ( is => 'rw', isa => 'Str', default => 'black' );
 has 'pdf'        => ( is => 'rw', isa => 'PDF::API2' );
@@ -45,7 +45,7 @@ sub draw {
 sub _text {
 	my ($self, $page, $x, $y, $str) = @_;
 	my $text = $page->text;
-	my $font = $self->pdf->corefont( $self->font );
+	my $font = $self->pdf->corefont( $self->font, -dokern => 1 );
 	
 	$text->font($font, $self->font_size);
 	$text->translate($x, $y);

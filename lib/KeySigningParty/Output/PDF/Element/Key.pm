@@ -28,7 +28,7 @@ has 'number'      => ( is => 'rw', isa => 'Num', default => 0 );
 has 'entry'       => ( is => 'rw', isa => 'KeySigningParty::KeyList::Entry' );
 has 'num_width'   => ( is => 'ro', isa => 'Num', default => 40 );
 has 'uid_width'   => ( is => 'ro', isa => 'Num', default => 120 );
-has 'image_size'  => ( is => 'ro', isa => 'Num', default => 30 );
+has 'image_size'  => ( is => 'ro', isa => 'Num', default => 40 );
 has 'visual_hashes' => ( is => 'rw', isa => 'ArrayRef[KeySigningParty::VisualHash]' );
 
 
@@ -68,7 +68,15 @@ sub draw {
 	$self->_text($page, $x, $y, $self->entry->number);
 	$self->_text($page, $x+$self->num_width, $y, $self->entry->size . $self->entry->keytype . "/" . $self->entry->id);
 	$self->_text($page, $x+$self->num_width+$self->uid_width, $y, $self->entry->fingerprint . " [ ] OK");
-	
+
+	# UIDs
+	my $saved_y = $y;
+	foreach my $uid ( @{ $self->entry->uids } ) {
+		$y -= 10;
+		$self->_text($page, $x+$self->num_width, $y, "[ ] $uid");
+	}
+	$y = $saved_y;
+
 	
 	# Visual hashes
 	my $hash_count = 1;
@@ -95,11 +103,6 @@ sub draw {
 	}
 	
 	
-	# UIDs
-	foreach my $uid ( @{ $self->entry->uids } ) {
-		$y -= 10;
-		$self->_text($page, $x+$self->num_width, $y, "[ ] $uid");
-	}
 }
 
 1;
