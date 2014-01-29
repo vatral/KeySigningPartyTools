@@ -47,8 +47,11 @@ $list->load($input_file);
 
 my $qr   = new KeySigningParty::VisualHash::QRCode();
 my $vash = new KeySigningParty::VisualHash::Vash();
+my @hashes = ( $qr );
 
-#my $out = new KeySigningParty::Output::PDF( list => $list, visual_hashes => [ $qr, $vash ] );
+if ( -f $vash->vash_jar ) {
+	push @hashes, $vash;
+}
 
 my $out = create_object("KeySigningParty::Output::$output_format", "KeySigningParty::Output");
 
@@ -56,7 +59,7 @@ $out->list( $list );
 
 if ( $out->isa("KeySigningParty::Output::PDF") ) {
 	# HACK, FIXME!
-	$out->visual_hashes( [ $qr, $vash ] );
+	$out->visual_hashes( \@hashes );
 }
 
 
