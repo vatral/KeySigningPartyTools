@@ -57,22 +57,6 @@ sub as_string {
 	return "[" . $self->number . "] " . $self->id . "  " . $self->uids->[0];
 }
 
-sub get_fingerprint_image {
-	my $self = shift;
-	mkdir("$ENV{HOME}/.KeySigningParty");
-	mkdir("$ENV{HOME}/.KeySigningParty/fingerprint_cache");
-	
-	my $fp = $self->fingerprint;
-	$fp =~ s/\s+//g;
-	
-	my $filename = "$ENV{HOME}/.KeySigningParty/fingerprint_cache/$fp.png";
-	if ( ! -f $filename ) {	
-		system("qrencode", "-o", $filename, "-s", "1", "-l", "L", "-m", "1", "-i", $fp);
-	}
-	
-	return $filename;
-}
-
 sub get_photo_image {
 	my ($self) = @_;
 	my $key = $self->long_id;
@@ -90,24 +74,6 @@ sub get_photo_image {
 	return $ret;
 }
 
-sub get_vash_image {
-	my $self = shift;
-	my $vash = "/home/vadim/Downloads/vash-1.1.0/Vash.jar";
-	
-	mkdir("$ENV{HOME}/.KeySigningParty");
-	mkdir("$ENV{HOME}/.KeySigningParty/vash");
-	
-	my $fp = $self->fingerprint;
-	$fp =~ s/\s+//g;
-	
-	my $filename = "$ENV{HOME}/.KeySigningParty/vash/$fp.png";
-	if ( ! -f $filename ) {	
-		system("java", "-jar", $vash, "-a", "1.1",  "-o", $filename, "-F", "png", "-w", "128", "-h", "128", "-d", $fp,);
-	}
-	
-	return $filename;
-
-}
 # Other recommended modules (uncomment to use):
 #  use IO::Prompt;
 #  use Perl6::Export;
