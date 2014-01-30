@@ -24,7 +24,7 @@ use KeySigningParty::KeyList;
 use PDF::API2;
 use KeySigningParty::Output::PDF::Element::Key;
 use KeySigningParty::Output::PDF::Element::Header;
-
+use KeySigningParty::Output::PDF::Element::Cover;
 extends 'KeySigningParty::Output';
 
 has 'margin'     => ( is => 'rw', isa => 'Num', default => 30 );
@@ -120,6 +120,25 @@ sub generate {
 			$y -= $page_elem->get_height;
 					
 		}
+
+		if ( $draw_elements ) {
+			# Print one last page with fingerprints and other useful things
+			#
+			$page = $pdf->page();
+
+			($llx, $lly, $urx, $ury) = $page->get_mediabox;
+			$h = $urx - $llx;
+			$w = $ury - $lly;
+			$x = $self->margin;
+			$y = $ury - $self->margin;
+
+			
+			my $cover = new KeySigningParty::Output::PDF::Element::Cover( pdf     => $pdf,
+			                                                              page    => $page,
+			                                                              digests => $self->list->digests );
+
+			$cover->draw($page, $x, $y);
+		} 
 	}
 	
 	$self->finalizing_hook->($self) if ( $self->finalizing_hook );
