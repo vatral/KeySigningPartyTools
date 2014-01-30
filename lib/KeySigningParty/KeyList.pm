@@ -51,6 +51,9 @@ sub _compute_digests {
 	$self->digests->{SHA512} = sha512_hex($data);
 	$self->digests->{RMD160} = Crypt::RIPEMD160->hexhash($data);
 
+	for my $dig ( keys %{$self->digests} ) {
+		$self->digests->{$dig} =~ s/\s+//g;
+	}
 }
 
 
