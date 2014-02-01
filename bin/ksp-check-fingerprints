@@ -17,6 +17,31 @@ GetOptions("output|o=s"       => \$output,
            "errors-only|e"    => \$opt_errors_only)
 	or die "Getopt failed: $!";
 
+if ( $cmd_help ) {
+	print <<HELP;
+Usage: $0 [options] keylist
+
+Verifies that the keys in the keyring have the fingerprints indicated in
+the keylist.
+
+Options:
+	--output, -o file  Send output to file instead of stdout
+	--quiet, -q        Do not output anything
+	--errors-only, -e  Only output errors
+
+Return code:
+	0   Everything went fine
+	1   Execution error
+	2   Missing key detected
+	4   Bad fingerprint detected
+
+The missing key and bad fingerprint errors may be combined if both errors
+are detected during execution.
+
+HELP
+	exit(0);
+}
+
 my $input = shift @ARGV;
 my ($in, $out);
 
