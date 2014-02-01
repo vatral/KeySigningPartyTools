@@ -20,11 +20,12 @@ use warnings;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 use KeySigningParty::KeyList::FOSDEM;
+use KeySigningParty::GPG;
 use Barcode::ZBar;
 use Getopt::Long;
 
 my %scanned;
-my ($opt_resume, $opt_speak, $opt_videodev);
+my ($opt_resume, $opt_speak, $opt_videodev, $opt_no_check);
 my ($cmd_help);
 my $output_file;
 
@@ -34,6 +35,7 @@ GetOptions("output|o=s"    => \$output_file,
            "resume|r"      => \$opt_resume,
            "speak|s"       => \$opt_speak,
            "videodev|v=s"  => \$opt_videodev,
+           "no-check"      => \$opt_no_check,
            "help|h"        => \$cmd_help
 	) or die "Getopt failed: $!";
 
@@ -67,6 +69,7 @@ my @write_buf;
 my $write_count = 0;
 my $espeak;
 
+my $gpg = new KeySigningParty::GPG();
 my $list = new KeySigningParty::KeyList::FOSDEM();
 $list->load($input_file);
 
@@ -160,6 +163,7 @@ sub handle_fingerprint {
 	foreach my $key ( @{$list->entries}) {
 		if ( $key->fingerprint_ns eq $fp ) {
 			my $name = $key->uids->[0];
+			my $bad;
 
 			if ( exists $scanned{$fp} ) {
 				speak("Duplicate: " . spoken_name($name)) unless $opts{quiet};
@@ -168,25 +172,35 @@ sub handle_fingerprint {
 
 
 			$scanned{$fp} = $key;
-			push @write_buf, [$key->long_id, $key->fingerprint, $name];
 
-			flush_buf() unless ($opts{no_flush});
-		
 			unless( $opts{quiet} ) {
 				print "===========================================================\n";
 				print "ID  : " . $key->long_id . "\n";
 				print "Type: " . $key->size . $key->keytype . "\n";
 				print "Name: $name\n";
 				print "===========================================================\n";
-
-				speak("Added: " . spoken_name($name));
 			}
-		
+
+			if (!$gpg->key_exists($key)) {
+				pspeak("Warning: Key for " . spoken_name($name) . " not found in keyring");
+			} elsif (!$gpg->check_fingerprint($key, $fp)) {
+				pspeak("Alert: Bad fingerprint for " . spoken_name($name) . ", not adding");
+				$bad = 1;
+			}
+
+			unless ($bad) {
+				push @write_buf, [$key->long_id, $key->fingerprint, $name];
+				flush_buf() unless ($opts{no_flush});
+			}
+	
+			speak("Added: " . spoken_name($name)) unless ( $opts{quiet} );
 			return;
 		}
 	}
 
 	print "Fingerprint $fp didn't match any keys\n";
+	speak("Fingerprint didn't match any keys");
+
 }
 
 sub flush_buf {
@@ -197,6 +211,12 @@ sub flush_buf {
 
 	@write_buf = ();
 	$write_count++;
+}
+
+sub pspeak {
+	my ($text) = @_;
+	print $text;
+	speak($text);
 }
 
 sub speak {
@@ -210,7 +230,6 @@ sub speak {
 	}
 
 	$espeak->speak($text);
-
 }
 
 sub spoken_name {
