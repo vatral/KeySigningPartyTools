@@ -229,6 +229,7 @@ sub speak {
 		$espeak = new Speech::eSpeak;
 	}
 
+	$espeak->synchronize;
 	$espeak->speak($text);
 }
 
