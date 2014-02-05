@@ -181,9 +181,9 @@ sub handle_fingerprint {
 				print "===========================================================\n";
 			}
 
-			if (!$gpg->key_exists($key)) {
+			if (!$gpg->key_exists($key->long_id)) {
 				pspeak("Warning: Key for " . spoken_name($name) . " not found in keyring");
-			} elsif (!$gpg->check_fingerprint($key, $fp)) {
+			} elsif (!$gpg->check_fingerprint($key->long_id, $fp)) {
 				pspeak("Alert: Bad fingerprint for " . spoken_name($name) . ", not adding");
 				$bad = 1;
 			}
