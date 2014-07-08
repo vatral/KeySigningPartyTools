@@ -53,6 +53,7 @@ sub check_fingerprint {
 
 sub key_exists {
 	my ($self, $uid) = @_;
+	carp "Bad key format: '$uid'" unless ($uid =~ /^[0-9A-F]{16}$/i);
 	return exists $self->keys_hash->{$uid};
 }
 
@@ -63,10 +64,15 @@ sub get_key_list {
 	my @uids;
 
 	foreach my $line (@data) {
+
 		my @fields = split(/:/, $line);
 		my $type = $fields[0];
 		my $uid  = $fields[4];
-		push @uids, $uid if ( $type eq "pub" );
+
+		if ( $type eq "pub" ) {
+			die "Bad format for key: '$uid'" unless ($uid =~ /^[0-9A-F]{16}$/i);
+			push @uids, $uid;
+		}
 	}
 
 	return @uids;
