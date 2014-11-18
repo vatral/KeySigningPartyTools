@@ -65,7 +65,7 @@ die "Input file required" unless ($input_file);
 die "Output file required" unless ($output_file);
 
 my $out;
-my @write_buf;
+my @write_buf = ();
 my $write_count = 0;
 my $espeak;
 
