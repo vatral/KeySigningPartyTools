@@ -1,0 +1,152 @@
+#!/usr/bin/perl -w
+use strict;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use Getopt::Long;
+use KeySigningParty::GPG;
+use Crypt::GPG;
+use Data::Dumper qw(Dumper);
+
+
+my ($output);
+my ($cmd_help, $cmd_check, $cmd_sign);
+my ($opt_errors_only, $opt_quiet, $opt_local_sign, $opt_only_one, $opt_dry_run);
+my ($opt_secret_key);
+$| = 1;
+
+GetOptions("output|o=s"       => \$output,
+           "help|h"           => \$cmd_help,
+           "quiet|q"          => \$opt_quiet,
+           "errors-only|e"    => \$opt_errors_only,
+           "check"            => \$cmd_check,
+           "sign"             => \$cmd_sign,
+           "local"            => \$opt_local_sign,
+           "only-one"         => \$opt_only_one,
+           "dry-run"          => \$opt_dry_run,
+           "secret-key|s=s"   => \$opt_secret_key)
+	or die "Getopt failed: $!";
+
+unless( $cmd_help || $cmd_sign || $cmd_check ) {
+	print "Command required. Try $0 --help.\n\n";
+	exit(1);
+}
+
+
+if ( $cmd_help ) {
+	print <<HELP;
+Usage: $0 [options] keylist
+
+Verifies that the keys in the keyring have the fingerprints indicated in
+the keylist.
+
+Commands:
+	--check            Check fingerprints
+        --sign             Sign keys
+        --help             Show this help
+
+Options:
+	--dry-run          Show what would happen
+	--errors-only, -e  Only output errors
+        --local            Make local, non-exportable signatures
+	--only-one         Only process one line, debug option
+	--output, -o file  Send output to file instead of stdout
+	--quiet, -q        Do not output anything
+
+Return code:
+	0   Everything went fine
+	1   Execution error
+	2   Missing key detected
+	4   Bad fingerprint detected
+
+The missing key and bad fingerprint errors may be combined if both errors
+are detected during execution.
+
+HELP
+	exit(0);
+}
+
+my $input = shift @ARGV;
+my ($in, $out);
+
+if ( $input ) {
+	open($in, '<', $input) or die "Can't open $input: $!";
+} else {
+	die "Input file required, try --help for help";
+}
+
+if ( $output ) {
+	open($out, '>', $output) or die "Can't open $output: $!";
+} else {
+	open($out, '>&STDOUT') or die "Can't dup STDOUT: $!";
+}
+
+if ( $cmd_sign && !$opt_secret_key ) {
+	die "Secret key required, try --help for help";
+}
+
+my $gpg = new KeySigningParty::GPG();
+my $cgpg = new Crypt::GPG();
+$cgpg->secretkey($opt_secret_key) if ( $opt_secret_key );
+
+my $missing_key_err;
+my $bad_fp_err;
+
+while( my $line = <$in> ) {
+	chomp $line;
+	my ($uid, $fingerprint, $name) = split(/:/, $line);
+
+	print $out "$uid: " unless ($opt_quiet || $opt_errors_only);
+
+	my $key_ok;
+	if ( $cmd_check || $cmd_sign ) {
+		if ( !$gpg->key_exists($uid) ) {
+			print $out "$uid: " if ( $opt_errors_only );
+			print $out "NO KEY\n" unless ($opt_quiet);
+			$missing_key_err = 1;
+		} elsif ( !$gpg->check_fingerprint($uid, $fingerprint)) {
+			print $out "$uid: " if ( $opt_errors_only );
+			print $out "BAD FINGERPRINT\n" unless ($opt_quiet);
+			$bad_fp_err = 1;
+		} else {
+			$key_ok = 1;
+			print $out "OK\n" unless ($opt_errors_only || $opt_quiet);
+		}
+	}
+
+	if ( $cmd_sign ) {
+		unless( $key_ok ) {
+			print "Verification of key $uid failed, not signing\n";
+			next;
+		}
+
+		my @all_uids = @{$gpg->keys_uids->{$uid}};
+		my @sign;
+		my $n=0;
+		foreach my $u (@all_uids) {
+#			die Dumper( [ $u ] );
+			if ( $u->{expired} ) {
+				print "EXPIRED ";
+			} elsif ( $u->{revoked} ) {
+				print "REVOKED ";
+			} else {
+				print "SIGN    ";
+				push @sign, $u->{num};
+			}
+
+			print $u->{text} . "\n";
+		}
+#		die Dumper([ @sign ] );
+		my ($k) = $cgpg->keydb($uid);
+#		die Dumper( [ $k->{UIDs} ] );
+		$cgpg->debug(1);
+		$cgpg->certify($uid, $opt_local_sign, 0, @sign) unless ($opt_dry_run);
+	}
+
+	exit 1 if ($opt_only_one);
+}
+
+my $ret = 0;
+$ret |= 0x02 if ( $missing_key_err );
+$ret |= 0x04 if ( $bad_fp_err );
+
+exit($ret);

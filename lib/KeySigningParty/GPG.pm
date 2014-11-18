@@ -19,12 +19,15 @@ use warnings;
 use strict;
 use Carp;
 use Moose;
+use Crypt::GPG;
 
 use version; our $VERSION = qv('0.0.3');
 has 'gpg_binary' => ( is => 'rw', isa => 'Str', default => '/usr/bin/gpg' );
+
+has 'key_data'   => ( is => 'rw', isa => 'ArrayRef[Str]', builder => '_build_key_data', lazy => 1);
 has 'keys'       => ( is => 'rw', isa => 'ArrayRef[Str]', builder => '_build_keys', lazy => 1 );
 has 'keys_hash'  => ( is => 'rw', isa => 'HashRef[Str]', builder => '_build_keys_hash', lazy => 1);
-
+has 'keys_uids'  => ( is => 'rw', isa => 'HashRef[ArrayRef[HashRef[Str]]]', builder => '_build_uids', lazy => 1);
 
 sub check_fingerprint {
 	my ($self, $uid, $fingerprint) = @_;
@@ -57,13 +60,26 @@ sub key_exists {
 	return exists $self->keys_hash->{$uid};
 }
 
-sub get_key_list {
+sub sign_key {
+	my ($self, $key, @uids) = @_;
+	my $g = new Crypt::GPG();
+
+	$g->certify($key, 0, 0, @uids);
+}
+
+
+sub _build_key_data {
 	my ($self) = @_;
 	my @data = $self->_run_gpg("--with-colons", "--list-keys");
+	chomp @data;
+	return \@data;
+}
 
+sub _build_keys {
+	my ($self) = @_;
 	my @uids;
 
-	foreach my $line (@data) {
+	foreach my $line (@{$self->key_data}) {
 
 		my @fields = split(/:/, $line);
 		my $type = $fields[0];
@@ -75,13 +91,59 @@ sub get_key_list {
 		}
 	}
 
-	return @uids;
+	return \@uids;
 }
 
-sub _build_keys {
+sub _build_uids {
 	my ($self) = @_;
-	my @list = $self->get_key_list;
-	return \@list;
+	my %per_key_data;
+
+	my $cur_uid;
+	my $uids;
+	my $num;
+
+	foreach my $line (@{$self->key_data}) {
+
+		my @fields = split(/:/, $line);
+		my $type   = $fields[0];
+		my $status = $fields[1];
+		my $uid    = $fields[4];
+		my $date   = $fields[5];
+		my $data   = $fields[9];
+
+		if ( $type eq "pub" ) {
+			die "Bad format for key: '$uid'" unless ($uid =~ /^[0-9A-F]{16}$/i);
+			if ( $cur_uid ) {
+				$per_key_data{$cur_uid} = $uids;
+			}
+
+			$uids = [];
+			$cur_uid = $uid;
+			$num = 0;
+		}
+		
+		if ( $type eq "pub" || $type eq "uid" || $type eq "uat" ) {
+			my $u = { text => $data, num => $num++ };
+			$u->{expired} = 1  if ( $status eq "e");
+			$u->{revoked} = 1  if ( $status eq "r");
+			$u->{date} = $date if ( $date );
+			$u->{image} = 1    if ( $type eq "uat" );
+
+			if ( $u->{image} ) {
+				$u->{text} =~ s/^\d+/Image of size/;
+			}
+
+			push @$uids, $u;
+
+		}
+	}
+
+	if ( $cur_uid ) {
+		$per_key_data{$cur_uid} = $uids;
+	}
+
+	
+	return \%per_key_data;
 }
 
 sub _build_keys_hash {
