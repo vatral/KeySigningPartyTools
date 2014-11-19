@@ -22,15 +22,21 @@ use strict;
 use Moose;
 use MIME::Entity;
 use Mail::GnuPG;
+use Email::Sender::Simple qw(sendmail);
+
 
 extends 'KeySigningParty::KeySender';
 
 has 'smtp_server'    => ( is => 'rw', isa => 'Str');
-has 'port'           => ( is => 'rw', isa => 'Num');
+has 'port'           => ( is => 'rw', isa => 'Num', default => 25);
 has 'ssl'            => ( is => 'rw', isa => 'Bool', default => 0 );
 
 
 sub send {
+	my ($self) = @_;
+	my $mail = $self->_gen_message;
+
+	sendmail($mail);
 }
 
 sub as_string {
@@ -41,9 +47,24 @@ sub as_string {
 sub _gen_message {
 	my ($self) = @_;
 
+	my $cc = $self->cc;
+	my $to = $self->to;
+	my $subj = $self->subject;
+
+	if ( $self->copy_to_self ) {
+		push $cc, $self->from;
+	}
+
+	if ( $self->only_to_self ) {
+		$to   = $self->from;
+		$subj = "[TEST] " . $subj;
+		$cc   = [];
+	}
+
 	my $top = MIME::Entity->build( From     => $self->from,
-	                               To       => $self->to,
-	                               Subject  => $self->subject,
+	                               To       => $to,
+	                               Cc       => $cc,
+	                               Subject  => $subj,
 	                               Type     => 'multipart/mixed');
 
 	
@@ -54,6 +75,21 @@ sub _gen_message {
 	             Data     => $self->signed_key);
 
 
+
+	my $mg = Mail::GnuPG->new( key       => $self->my_key_id,
+	                           use_agent => 1 );
+
+	my @encrypt_to = ($self->to);
+	if ( $self->encrypt_to_self ) {
+		push @encrypt_to, $self->my_key_id;
+	}
+
+	if (my $ret = ($mg->mime_signencrypt( $top, @encrypt_to) )) {
+		die "Failed to sign and encrypt.\n".
+		    "GPG code:   $ret\n",
+		    "GPG errors: " . join("\n", @{$mg->{last_message}}) . "\n".
+		    "GPG output: " . join("\n", @{$mg->{plaintext}}) . "\n";
+	}
 
 	return $top;
 }

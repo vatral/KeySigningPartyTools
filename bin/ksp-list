@@ -13,7 +13,7 @@ use KeySigningParty::KeySender::Email;
 my ($output);
 my ($cmd_help, $cmd_check, $cmd_sign, $cmd_mail);
 my ($opt_errors_only, $opt_quiet, $opt_local_sign, $opt_only_one, $opt_dry_run);
-my ($opt_secret_key);
+my ($opt_secret_key, $opt_config);
 my $opt_use_color = 1;
 
 $| = 1;
@@ -28,7 +28,8 @@ GetOptions("output|o=s"       => \$output,
            "only-one"         => \$opt_only_one,
            "dry-run"          => \$opt_dry_run,
            "secret-key|s=s"   => \$opt_secret_key,
-           "mail|email"       => \$cmd_mail)
+           "mail|email"       => \$cmd_mail,
+           "config=s"         => \$opt_config)
 	or die "Getopt failed: $!";
 
 unless( $cmd_help || $cmd_sign || $cmd_check || $cmd_mail ) {
@@ -89,9 +90,13 @@ if ( $cmd_sign && !$opt_secret_key ) {
 	die "Secret key required, try --help for help";
 }
 
+my $config = load_config($opt_config // $ENV{HOME} . "/.ksp_config");
+
 my $gpg = new KeySigningParty::GPG();
 my $cgpg = new Crypt::GPG();
-$cgpg->secretkey($opt_secret_key) if ( $opt_secret_key );
+
+$opt_secret_key //= $config->{secret_key};
+$cgpg->secretkey($opt_secret_key);
 
 my $missing_key_err;
 my $bad_fp_err;
@@ -152,7 +157,7 @@ while( my $line = <$in> ) {
 		print_uids(@filtered);
 
 
-		my @addrs = get_field('num', @filtered);
+		my @addrs = get_field('text', @filtered);
 		print "\t\t" . scalar(@addrs) . " recipients\n";
 		my $armored = $gpg->export_key( $uid );
 		unless (@addrs) {
@@ -160,16 +165,19 @@ while( my $line = <$in> ) {
 			next;
 		}
 
-		my $sender = KeySigningParty::KeySender::Email->new(
-			from          => 'me@vadim.ws',
-			to            => shift @addrs,
-			cc            => \@addrs,
-			signed_key_id => $uid,
-			my_key_id     => $opt_secret_key,
-			my_name       => 'Vadim',
-			signed_key    => $armored);
+		my %args = %{$config->{'KeySigningParty::KeySender::Email'}};
 
-		#print $sender->as_string;
+		$args{cc} = [] unless ( exists $args{cc} );
+		$args{my_key_id}     = $opt_secret_key;
+		$args{to}            = shift @addrs;
+		$args{signed_key}    = $armored;
+		$args{signed_key_id} = $uid;
+
+		push $args{cc}, @addrs;
+
+
+		my $sender = KeySigningParty::KeySender::Email->new(%args);
+		print $sender->send() unless ($opt_dry_run);
 		                               
 
 
@@ -245,6 +253,11 @@ sub get_field {
 	return @ret;
 }
 
+sub load_config {
+	my ($file) = @_;
+	my $ret = do($file);
+	return $ret;
+}
 
 __DATA__
 

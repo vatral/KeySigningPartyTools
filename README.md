@@ -11,6 +11,7 @@ List of tools
 * ksp-import-keys: automatically import signatures from a mailbox. Supports mbox files, IMAP and POP3 servers.
 * ksp-scanlist: scan QR codes from a list created by ksp-makelist, and generate a list of keys to sign.
 * ksp-check-fingerprints: check whether the fingerprints scanned from the list match the ones from the keyring
+* ksp-list: process lists: check signatures, sign keys, mail signed keys
 
 Requirements
 ============
@@ -19,6 +20,11 @@ Requirements
 * Digest::RMD160
 * PDF::API2
 * Barcode::ZBar
+* Crypt::GPG
+* Crypt::RIPEMD160
+* Mail::GnuPG
+* MIME::Entity
+* Email::Sender
 * Moose
 * qrencode
 * Vash (optional)

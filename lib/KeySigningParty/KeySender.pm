@@ -22,20 +22,25 @@ use strict;
 use Carp;
 use Moose;
 
-has 'from'          => ( is => 'rw', isa => 'Str');
-has 'to'            => ( is => 'rw', isa => 'Str');
-has 'cc'            => ( is => 'rw', isa => 'ArrayRef[Str]', default => sub { [ ] } );
-has 'signed_key'    => ( is => 'rw', isa => 'Str' );
+has 'from'               => ( is => 'rw', isa => 'Str');
+has 'to'                 => ( is => 'rw', isa => 'Str');
+has 'cc'                 => ( is => 'rw', isa => 'ArrayRef[Str]', default => sub { [ ] } );
+has 'signed_key'         => ( is => 'rw', isa => 'Str' );
 
-has 'signed_key_id' => ( is => 'rw', isa => 'Str', trigger => \&_update );
-has 'my_key_id'     => ( is => 'rw', isa => 'Str', trigger => \&_update );
-has 'my_name'       => ( is => 'rw', isa => 'Str', trigger => \&_update );
+has 'copy_to_self'       => ( is => 'rw', isa => 'Bool', default => 0 );
+has 'encrypt_to_self'    => ( is => 'rw', isa => 'Bool', default => 0 );
+has 'only_to_self'       => ( is => 'rw', isa => 'Bool', default => 0 );
 
-has 'subject' => ( is => 'ro', isa => 'Str', writer => '_set_subject');
-has 'body'    => ( is => 'ro', isa => 'Str', writer => '_set_body');
 
-has 'body_pattern'    => ( is => 'rw', isa => 'Str', builder => '_build_body_pattern', lazy => 1, trigger => \&_update);
-has 'subject_pattern' => ( is => 'rw', isa => 'Str', default => 'Your signed key %SIGNED_KEY_ID%', trigger => \&_update);
+has 'signed_key_id'      => ( is => 'rw', isa => 'Str', trigger => \&_update );
+has 'my_key_id'          => ( is => 'rw', isa => 'Str', trigger => \&_update );
+has 'my_name'            => ( is => 'rw', isa => 'Str', trigger => \&_update );
+
+has 'subject'            => ( is => 'ro', isa => 'Str', writer => '_set_subject');
+has 'body'               => ( is => 'ro', isa => 'Str', writer => '_set_body');
+
+has 'body_pattern'       => ( is => 'rw', isa => 'Str', builder => '_build_body_pattern', lazy => 1, trigger => \&_update);
+has 'subject_pattern'    => ( is => 'rw', isa => 'Str', default => 'Your signed key %SIGNED_KEY_ID%', trigger => \&_update);
 
 
 
