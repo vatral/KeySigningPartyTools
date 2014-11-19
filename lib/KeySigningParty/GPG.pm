@@ -68,6 +68,14 @@ sub sign_key {
 }
 
 
+sub export_key {
+	my ($self, $uid) = @_;
+
+	my @data = $self->_run_gpg("--armor", "--export", $uid);
+	return join("\n", @data);
+}
+
+
 sub _build_key_data {
 	my ($self) = @_;
 	my @data = $self->_run_gpg("--with-colons", "--list-keys");
