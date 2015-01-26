@@ -51,6 +51,10 @@ sub _gen_message {
 	my $to = $self->to;
 	my $subj = $self->subject;
 
+	# No i18n for called commands so that errors
+	# can be parsed.
+	local $ENV{LC_ALL} = 'C';
+
 	if ( $self->copy_to_self ) {
 		push $cc, $self->from;
 	}
@@ -85,12 +89,14 @@ sub _gen_message {
 	}
 
 	if (my $ret = ($mg->mime_signencrypt( $top, @encrypt_to) )) {
-		die "Failed to sign and encrypt.\n".
-		    "GPG code:   $ret\n",
-		    "GPG errors: " . join("\n", @{$mg->{last_message}}) . "\n".
-		    "GPG output: " . join("\n", @{$mg->{plaintext}}) . "\n";
+		die "GPG failed with error: " . join("\n", @{$mg->{last_message}});
+		#die "Failed to sign and encrypt.\n".
+		#    "GPG code:   $ret\n",
+		#    "GPG errors: " . join("\n", @{$mg->{last_message}}) . "\n".
+		#    "GPG output: " . join("\n", @{$mg->{plaintext}}) . "\n";
 	}
 
 	return $top;
 }
+
 1; 
