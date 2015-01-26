@@ -163,6 +163,7 @@ sub _build_keys_hash {
 sub _run_gpg {
 	my ($self, @args) = @_;
 
+	local $ENV{LC_ALL} = 'C'; #Ensure messages are in English
 	open(my $gpg, '-|', $self->gpg_binary, @args) or die "Can't run " . $self->gpg_binary . ": $!";
 	my @data = <$gpg>;
 	close $gpg;
