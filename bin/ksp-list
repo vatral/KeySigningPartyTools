@@ -8,12 +8,14 @@ use Crypt::GPG;
 use Data::Dumper qw(Dumper);
 use Term::ANSIColor qw(:constants);
 use KeySigningParty::KeySender::Email;
+use KeySigningParty::ConfigFile;
+
 
 
 my ($output);
-my ($cmd_help, $cmd_check, $cmd_sign, $cmd_mail);
+my ($cmd_help, $cmd_check, $cmd_sign, $cmd_mail, $cmd_mkconfig);
 my ($opt_errors_only, $opt_quiet, $opt_local_sign, $opt_only_one, $opt_dry_run);
-my ($opt_secret_key, $opt_config);
+my ($opt_config);
 my $opt_use_color = 1;
 
 $| = 1;
@@ -27,9 +29,9 @@ GetOptions("output|o=s"       => \$output,
            "local"            => \$opt_local_sign,
            "only-one"         => \$opt_only_one,
            "dry-run"          => \$opt_dry_run,
-           "secret-key|s=s"   => \$opt_secret_key,
            "mail|email"       => \$cmd_mail,
-           "config=s"         => \$opt_config)
+           "config=s"         => \$opt_config,
+           "mkconfig"         => \$cmd_mkconfig)
 	or die "Getopt failed: $!";
 
 unless( $cmd_help || $cmd_sign || $cmd_check || $cmd_mail ) {
@@ -87,14 +89,26 @@ if ( $output ) {
 	open($out, '>&STDOUT') or die "Can't dup STDOUT: $!";
 }
 
-if ( $cmd_sign && !$opt_secret_key ) {
-	die "Secret key required, try --help for help";
+my $gpg = new KeySigningParty::GPG();
+my $cgpg = new Crypt::GPG();
+
+
+my $cf = KeySigningParty::ConfigFile->new( KSPGPG => $gpg );
+my $config;
+
+$cf->filename( $opt_config ) if ($opt_config);
+
+if ( $cf->file_exists ) {
+	$cf->load();
+	$config = $cf->data;
 }
 
-my $config = load_config($opt_config // $ENV{HOME} . "/.ksp_config");
-
 if ( ($cmd_sign || $cmd_mail) && !$config ) {
-	die "Config file required for --mail and --sign commands, please create $ENV{HOME}/.ksp_config";
+	$cf->generate;
+	
+	die "A config file is required for --mail and --sign commands.\n".
+	    "A default one has been generated for you at " . $cf->filename . "\n".
+	    "Please check that the default settings are to your liking, and run this command again.";
 }
 
 if ( $cmd_mail ) {
@@ -108,12 +122,6 @@ if ( $cmd_mail ) {
 	}
 }
 
-
-my $gpg = new KeySigningParty::GPG();
-my $cgpg = new Crypt::GPG();
-
-$opt_secret_key //= $config->{secret_key};
-$cgpg->secretkey($opt_secret_key);
 
 my $missing_key_err;
 my $bad_fp_err;
@@ -159,7 +167,12 @@ while( my $line = <$in> ) {
 
 		my ($k) = $cgpg->keydb($uid);
 		$cgpg->debug(1);
-		$cgpg->certify($uid, $opt_local_sign, 0, @sign) unless ($opt_dry_run);
+		
+		foreach my $sec_key ( @{$config->{secret_keys}} ) {
+			print "\tSigning with $sec_key\n";
+			$cgpg->secretkey( $sec_key );
+			$cgpg->certify($uid, $opt_local_sign, 0, @sign) unless ($opt_dry_run);
+		}
 	}
 
 	if ( $cmd_mail ) {
@@ -188,27 +201,30 @@ while( my $line = <$in> ) {
 			next;
 		}
 
-		my %args = %{$config->{'KeySigningParty::KeySender::Email'}};
+		foreach my $sec_key ( @{$config->{secret_keys}} ) {
+			
+			my %args = %{$config->{'KeySigningParty::KeySender::Email'}};
 
-		$args{cc} = [] unless ( exists $args{cc} );
-		$args{my_key_id}     = $opt_secret_key;
-		$args{to}            = shift @addrs;
-		$args{signed_key}    = $armored;
-		$args{signed_key_id} = $uid;
+			$args{cc} = [] unless ( exists $args{cc} );
+			$args{my_key_id}     = $sec_key;
+			$args{to}            = shift @addrs;
+			$args{signed_key}    = $armored;
+			$args{signed_key_id} = $uid;
 
-		push $args{cc}, @addrs;
+			push $args{cc}, @addrs;
 
 
-		eval {
-			my $sender = KeySigningParty::KeySender::Email->new(%args);
-			print $sender->send() unless ($opt_dry_run);
-		};
+			eval {
+				my $sender = KeySigningParty::KeySender::Email->new(%args);
+				print $sender->send() unless ($opt_dry_run);
+			};
 
-		if ( $@ ) {
-			print "Failed to send: $@";
-			next;
+			if ( $@ ) {
+				print "Failed to send: $@";
+				next;
+			}
 		}
-
+		
 		unless ($opt_dry_run) {
 			$sent{$uid} = 1;
 			print $sent_fh "$uid\n";

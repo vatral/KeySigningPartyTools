@@ -24,10 +24,21 @@ use Crypt::GPG;
 use version; our $VERSION = qv('0.0.3');
 has 'gpg_binary' => ( is => 'rw', isa => 'Str', default => '/usr/bin/gpg' );
 
-has 'key_data'   => ( is => 'rw', isa => 'ArrayRef[Str]', builder => '_build_key_data', lazy => 1);
-has 'keys'       => ( is => 'rw', isa => 'ArrayRef[Str]', builder => '_build_keys', lazy => 1 );
-has 'keys_hash'  => ( is => 'rw', isa => 'HashRef[Str]', builder => '_build_keys_hash', lazy => 1);
-has 'keys_uids'  => ( is => 'rw', isa => 'HashRef[ArrayRef[HashRef[Str]]]', builder => '_build_uids', lazy => 1);
+# Raw GPG key data
+has 'key_data'         => ( is => 'rw', isa => 'ArrayRef[Str]', builder => '_build_key_data', lazy => 1);
+has 'secret_key_data'  => ( is => 'rw', isa => 'ArrayRef[Str]', builder => '_build_secret_key_data', lazy => 1);
+
+# List of keys
+has 'keys'             => ( is => 'rw', isa => 'ArrayRef[Str]', builder => '_build_keys', lazy => 1 );
+has 'secret_keys'      => ( is => 'rw', isa => 'ArrayRef[Str]', builder => '_build_secret_keys', lazy => 1 );
+
+# Hash of keys
+has 'keys_hash'        => ( is => 'rw', isa => 'HashRef[Str]', builder => '_build_keys_hash', lazy => 1);
+has 'secret_keys_hash' => ( is => 'rw', isa => 'HashRef[Str]', builder => '_build_secret_keys_hash', lazy => 1);
+
+# List of keys with sub-UIDs
+has 'keys_uids'        => ( is => 'rw', isa => 'HashRef[ArrayRef[HashRef[Str]]]', builder => '_build_uids', lazy => 1);
+has 'secret_keys_uids' => ( is => 'rw', isa => 'HashRef[ArrayRef[HashRef[Str]]]', builder => '_build_secret_uids', lazy => 1);
 
 sub check_fingerprint {
 	my ($self, $uid, $fingerprint) = @_;
@@ -83,17 +94,26 @@ sub _build_key_data {
 	return \@data;
 }
 
-sub _build_keys {
+sub _build_secret_key_data {
 	my ($self) = @_;
-	my @uids;
+	my @data = $self->_run_gpg("--with-colons", "--list-secret-keys");
+	chomp @data;
+	return \@data;
+}
 
-	foreach my $line (@{$self->key_data}) {
+
+sub _build_keys {
+	my ($self, $data) = @_;
+	my @uids;
+	$data //= $self->key_data;
+
+	foreach my $line (@$data) {
 
 		my @fields = split(/:/, $line);
 		my $type = $fields[0];
 		my $uid  = $fields[4];
 
-		if ( $type eq "pub" ) {
+		if ( $type eq "pub" || $type eq "sec" ) {
 			die "Bad format for key: '$uid'" unless ($uid =~ /^[0-9A-F]{16}$/i);
 			push @uids, $uid;
 		}
@@ -102,16 +122,23 @@ sub _build_keys {
 	return \@uids;
 }
 
-sub _build_uids {
+sub _build_secret_keys {
 	my ($self) = @_;
+	return $self->_build_keys( $self->secret_key_data );
+}
+
+
+sub _build_uids {
+	my ($self, $data) = @_;
 	my %per_key_data;
 
 	my $cur_uid;
 	my $uids;
 	my $num;
+	
+	$data //= $self->key_data;
 
-	foreach my $line (@{$self->key_data}) {
-
+	foreach my $line (@$data) {
 		my @fields = split(/:/, $line);
 		my $type   = $fields[0];
 		my $status = $fields[1];
@@ -119,7 +146,7 @@ sub _build_uids {
 		my $date   = $fields[5];
 		my $data   = $fields[9];
 
-		if ( $type eq "pub" ) {
+		if ( $type eq "pub" || $type eq "sec" ) {
 			die "Bad format for key: '$uid'" unless ($uid =~ /^[0-9A-F]{16}$/i);
 			if ( $cur_uid ) {
 				$per_key_data{$cur_uid} = $uids;
@@ -130,7 +157,7 @@ sub _build_uids {
 			$num = 0;
 		}
 		
-		if ( $type eq "pub" || $type eq "uid" || $type eq "uat" ) {
+		if ( $type eq "pub" || $type eq "sec" || $type eq "uid" || $type eq "uat" ) {
 			my $u = { text => $data, num => $num++ };
 			$u->{expired} = 1  if ( $status eq "e");
 			$u->{revoked} = 1  if ( $status eq "r");
@@ -154,11 +181,24 @@ sub _build_uids {
 	return \%per_key_data;
 }
 
+sub _build_secret_uids {
+	my ($self) = @_;
+	return $self->_build_uids( $self->secret_key_data );
+}
+
+
 sub _build_keys_hash {
 	my ($self) = @_;
 	my %ret = map { $_ => 1 } @{$self->keys};
 	return \%ret;
 }
+
+sub _build_secret_keys_hash {
+	my ($self) = @_;
+	my %ret = map { $_ => 1 } @{$self->secret_keys};
+	return \%ret;
+}
+
 
 sub _run_gpg {
 	my ($self, @args) = @_;
