@@ -71,7 +71,7 @@ sub generate {
 	foreach my $key ( @{$self->KSPGPG->secret_keys} ) {
 		$iden .= ",\n\n" unless ($first_secr);
 		
-		my $key_ids  = $self->KSPGPG->secret_keys_uids->{$key};
+		my $key_ids  = $self->KSPGPG->secret_keys_hash->{$key}->uids;
 		my $orig_text = $key_ids->[0]->{text};
 		my $key_text = $orig_text;
 		$key_text =~ s/\(.*\)//; # remove annotation
@@ -126,10 +126,18 @@ sub _get_pattern {
 1;
 
 __DATA__
-
 #!/usr/bin/perl
 {
+	# Secret keys to use
 	secret_keys => %SECRET_KEYS%,
+
+	# Additional key IDs to consider as fully trusted. The keys signed
+	# by these will appear as certified in the list. The corresponding 
+	# secret keys do not need to be present on the system.
+	#
+	# This is used for instance to take into account secret keys that
+	# are located on other systems.
+	trusted_keys => [ ],
 
 	'KeySigningParty::KeySender::Email' => {
 		identities => {

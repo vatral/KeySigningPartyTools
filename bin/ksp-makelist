@@ -23,6 +23,9 @@ use KeySigningParty::KeyList::FOSDEM;
 use KeySigningParty::Output::PDF;
 use KeySigningParty::VisualHash::QRCode;
 use KeySigningParty::VisualHash::Vash;
+use KeySigningParty::ConfigFile;
+use KeySigningParty::GPG;
+
 use Getopt::Long;
 
 my $input_file;
@@ -39,10 +42,20 @@ $input_file = shift @ARGV;
 die "Input file required" unless ($input_file);
 die "Output file required" unless ($output_file);
 
+my $gpg = KeySigningParty::GPG->new();
+my $cf = KeySigningParty::ConfigFile->new(KSPGPG => $gpg);
+if (!$cf->file_exists) {
+	$cf->generate();
+	die "Generated default config file at " . $cf->filename . ". Please check if everything looks good, and run this command again.";
+}
+
+$cf->load;
+#my @trusted = (@{$cf->data->{secret_keys}}, @{$cf->data->{trusted_keys}});
+$gpg->fully_trusted_keys([ @{$cf->data->{secret_keys}}, @{$cf->data->{trusted_keys}} ]);
 
 
 $| = 1;
-my $list = new KeySigningParty::KeyList::FOSDEM();
+my $list = new KeySigningParty::KeyList::FOSDEM(KSPGPG => $gpg);
 $list->load($input_file);
 
 my $qr   = new KeySigningParty::VisualHash::QRCode();

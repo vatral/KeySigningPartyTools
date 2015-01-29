@@ -22,10 +22,13 @@ use Moose;
 use Digest::SHA qw(sha1_hex sha224_hex sha256_hex sha384_hex sha512_hex);
 use Crypt::RIPEMD160;
 use Encode qw(encode);
+use KeySigningParty::GPG;
 
 use version; our $VERSION = qv('0.0.3');
 has 'entries' => ( is => 'rw', isa => 'ArrayRef[KeySigningParty::KeyList::Entry]', default => sub { [ ] } );
 has 'digests' => ( is => 'rw', isa => 'HashRef[Str]', default => sub { { } } );
+has 'KSPGPG'  => ( is => 'rw', isa => 'KeySigningParty::GPG' );
+
 
 # Other recommended modules (uncomment to use):
 #  use IO::Prompt;

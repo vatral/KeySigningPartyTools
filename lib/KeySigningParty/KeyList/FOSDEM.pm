@@ -65,7 +65,19 @@ sub load {
 			#$data{fingerprint} = $1;
 			$entry->fingerprint($1);
 		} elsif ( $line =~ /uid (.*?)$/ ) {
-			push @{$entry->uids}, $1;
+			my $uid_entry = { text => $1 };
+
+			if ( $self->KSPGPG->key_exists( $entry->fingerprint_ns ) ) {
+				my $key = $self->KSPGPG->get( $entry->fingerprint_ns );
+				my $uid = $key->find_uid( $uid_entry->{text} );
+				if ( $uid ) {
+					$uid_entry->{certified} = $uid->certified;
+					$uid_entry->{expired}   = $uid->expired;
+					$uid_entry->{revoked}   = $uid->revoked;
+				}
+			}
+
+			push @{$entry->uids}, $uid_entry;
 		}
 	}
 

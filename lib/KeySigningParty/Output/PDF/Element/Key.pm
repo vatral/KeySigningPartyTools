@@ -74,7 +74,19 @@ sub draw {
 	my $saved_y = $y;
 	foreach my $uid ( @{ $self->entry->uids } ) {
 		$y -= 10;
-		$self->_text($page, $x+$self->num_width, $y, "$uid");
+		my $mark = "";
+
+		if ( $uid->{revoked} ) {
+			$mark = "REV";
+		} elsif ( $uid->{expired} ) {
+			$mark = "EXP";
+		} elsif ( $uid->{certified} ) {
+			$mark = "[X]";
+		} else {
+			$mark = "[ ]";
+		}
+
+		$self->_text($page, $x+$self->num_width, $y, $mark . " " . $uid->{text});
 	}
 	$y = $saved_y;
 
