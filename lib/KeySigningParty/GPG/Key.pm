@@ -101,12 +101,8 @@ sub _load_sigs {
 			$sigs = [];
 			$cur_uid = $cache{$cur_uid_id};
 			$certified = 0;
-
-			warn "Fetching for $cur_uid_id";
 		}
 
-		#sig:::17:6342F2ECBC5AF6B9:2012-02-19::::dirk astrath <dirk.astrath@inovio.de>:10x:::::2:
-		#
 		if ( $type eq "sig" ) {
 			my $sig = KeySigningParty::GPG::Key::UID::Signature->new( id => $key_uid, date => $date );
 
