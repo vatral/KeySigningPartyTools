@@ -47,26 +47,15 @@ has 'fully_trusted_keys' => ( is => 'rw', isa => 'ArrayRef[' . LongID . ']', def
 
 sub check_fingerprint {
 	my ($self, $uid, $fingerprint) = @_;
-	my @data = $self->_run_gpg( "--with-colons", "--fingerprint", $uid );
+	$uid = _sanitize_key($uid);
+
+	return 0 if (!$self->key_exists($uid));
+	my $k = $self->get($uid);
+
 	$fingerprint =~ s/\s+//g;
 	$fingerprint = uc($fingerprint);
 
-
-	if ( !$self->key_exists( $uid ) ) {
-		die "Key $uid doesn't exist";
-	}
-
-	foreach my $line (@data) {
-		my @fields = split(/:/, $line);
-		my $type = $fields[0];
-		my $fp   = $fields[9];
-
-		if ( $type eq "fpr" && $fp eq $fingerprint ) {
-			return 1;
-		}
-	}
-
-	return;
+	return ( $k->fingerprint eq $fingerprint);
 }
 
 sub get {

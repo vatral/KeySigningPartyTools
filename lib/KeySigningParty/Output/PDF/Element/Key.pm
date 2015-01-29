@@ -95,20 +95,23 @@ sub draw {
 	my $hash_count = 1;
 	foreach my $vhash ( @{$self->visual_hashes} ) {
 		my $file    = $vhash->get_image( $self->entry );
-		
-		my $img     = $self->pdf->image_png($file);
-		my $img_gfx = $page->gfx();
-		$img_gfx->image( $img, 
-		                 $x + $content_width - ($self->image_size * $hash_count) - (5 * ($hash_count-1)),
-		                 $y - $self->image_size + $self->line_height,
-		                 $self->image_size,
-		                 $self->image_size);
-		                 
+		if (!-f $file) {
+			warn "vhash failed to generate file for " . $self->entry->long_id;
+		} else {
+			my $img     = $self->pdf->image_png($file);
+			my $img_gfx = $page->gfx();
+			$img_gfx->image( $img, 
+					 $x + $content_width - ($self->image_size * $hash_count) - (5 * ($hash_count-1)),
+					 $y - $self->image_size + $self->line_height,
+					 $self->image_size,
+					 $self->image_size);
+					 
+		}
 		$hash_count++;
 	}
 	
 	# Photo if there are any
-	if ( my $photo_file = $self->entry->get_photo_image ) {
+	if ( my $photo_file = $self->entry->photo ) {
 		my $photo_img = $self->pdf->image_jpeg( $photo_file );
 		my $photo_gfx = $page->gfx();
 		

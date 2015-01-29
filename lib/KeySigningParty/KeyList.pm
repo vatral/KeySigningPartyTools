@@ -29,6 +29,9 @@ has 'entries' => ( is => 'rw', isa => 'ArrayRef[KeySigningParty::KeyList::Entry]
 has 'digests' => ( is => 'rw', isa => 'HashRef[Str]', default => sub { { } } );
 has 'KSPGPG'  => ( is => 'rw', isa => 'KeySigningParty::GPG' );
 
+has 'starting_hook' => ( is => 'rw', isa => 'CodeRef' );
+has 'progress_hook'   => ( is => 'rw', isa => 'CodeRef' );
+has 'finalizing_hook' => ( is => 'rw', isa => 'CodeRef' );
 
 # Other recommended modules (uncomment to use):
 #  use IO::Prompt;

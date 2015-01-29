@@ -26,7 +26,7 @@ use KeySigningParty::Types qw( ShortID LongID Hex );
 
 use version; our $VERSION = qv('0.0.3');
 
-has 'gpgobj'      => ( is => 'rw', isa => 'KeySigningParty::GPG' );
+has 'gpgobj'      => ( is => 'rw', isa => 'KeySigningParty::GPG', weak_ref => 1 );
 
 has 'id'          => ( is => 'rw', isa => LongID, trigger => \&_id_changed);
 has 'short_id'    => ( is => 'ro', isa => ShortID, writer => '_set_short_id', default => '00000000');
@@ -62,6 +62,41 @@ sub find_uid {
 	}
 
 	return undef;
+}
+
+sub has_image {
+	my ($self) = @_;
+	foreach my $uid ( @{ $self->uids} ) {
+		return 1 if ( $uid->image );
+	}
+
+	return 0;
+}
+
+sub export_image {
+	my ($self) = @_;
+	my $ret;
+	my @data = $self->gpgobj->_run_gpg("--photo-viewer=echo PHOTO:\%I", "--list-options", "show-photos", "--list-keys", $self->id);
+	chomp @data;
+
+        foreach my $line (@data) {
+                chomp $line;
+                if ( $line =~ /^PHOTO:(.*)$/ ) {
+                        $ret = $1;
+                        last;
+                }
+        }
+
+        return $ret;
+}
+
+sub check_fingerprint {
+	my ($self, $fingerprint) = @_;
+
+ 	$fingerprint =~ s/\s+//g;
+ 	$fingerprint = uc($fingerprint);
+
+	return ($fingerprint eq $self->fingerprint);
 }
 
 sub _load_sigs {

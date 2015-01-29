@@ -58,22 +58,6 @@ sub as_string {
 	return "[" . $self->number . "] " . $self->id . "  " . $self->uids->[0];
 }
 
-sub get_photo_image {
-	my ($self) = @_;
-	my $key = $self->long_id;
-	my $ret;
-	my @buf = `gpg --photo-viewer="echo PHOTO:\%I" --list-options show-photos --list-keys $key`;
-	
-	foreach my $line (@buf) {
-		chomp $line;
-		if ( $line =~ /^PHOTO:(.*)$/ ) {
-			$ret = $1;
-			last;
-		}
-	}
-
-	return $ret;
-}
 
 # Other recommended modules (uncomment to use):
 #  use IO::Prompt;

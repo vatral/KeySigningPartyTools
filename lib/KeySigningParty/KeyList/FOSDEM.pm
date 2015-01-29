@@ -22,6 +22,7 @@ use Carp;
 
 use version; our $VERSION = qv('0.0.3');
 use KeySigningParty::KeyList::FOSDEM::Entry;
+use Fcntl qw(:seek);
 
 extends 'KeySigningParty::KeyList';
 
@@ -42,10 +43,26 @@ sub load {
 	
 	my $entry = new KeySigningParty::KeyList::FOSDEM::Entry();
 	my $data = "";	
+	my $html;
+	my $keys_in_file = 0;
+	my $keys_in_keyring = 0;
+	my %keys_found;
+
+	seek($fh, 0, SEEK_END);
+	my $file_length = tell($fh);
+	seek($fh, 0, SEEK_SET);
+
+	$self->starting_hook->($self) if ($self->starting_hook);
 
 	while(my $line = <$fh>) {
 		$data .= $line;
 		chomp $line;
+		$html=1 if ( $line =~ /<html>/ );
+
+		if ( $html ) {
+			$line =~ s/&gt;/>/g;
+			$line =~ s/&lt;/</g;
+		}
 	
 		if ( $line =~ /^-----/ ) {
 			if ( $entry->is_complete ) {
@@ -60,27 +77,55 @@ sub load {
 			$tmp =~ /(\d+)([A-Z])\/([0-9A-F]+)/;
 			$entry->size( $1 );
 			$entry->keytype( $2 );
-			$entry->id( $3 );			
+			$entry->id( $3 );
+
+			$keys_in_file++;
 		} elsif ( $line =~ /Key fingerprint = ([0-9A-F ]+)$/ ) {
 			#$data{fingerprint} = $1;
 			$entry->fingerprint($1);
+
+			if ( $self->KSPGPG->key_exists( $entry->fingerprint_ns ) ) {
+				my $key = $self->KSPGPG->get( $entry->fingerprint_ns );
+				if ( $key->has_image ) {
+					my $img = $key->export_image;
+					$entry->photo($img) if ($img);
+				}
+			}
 		} elsif ( $line =~ /uid (.*?)$/ ) {
 			my $uid_entry = { text => $1 };
 
 			if ( $self->KSPGPG->key_exists( $entry->fingerprint_ns ) ) {
+				if (!exists $keys_found{ $entry->fingerprint_ns } ) {
+					$keys_in_keyring++;
+					$keys_found{$entry->fingerprint_ns} = 1;
+				}
+
 				my $key = $self->KSPGPG->get( $entry->fingerprint_ns );
-				my $uid = $key->find_uid( $uid_entry->{text} );
-				if ( $uid ) {
-					$uid_entry->{certified} = $uid->certified;
-					$uid_entry->{expired}   = $uid->expired;
-					$uid_entry->{revoked}   = $uid->revoked;
+
+				if ( $key->check_fingerprint( $entry->fingerprint_ns ) ) {
+					my $uid = $key->find_uid( $uid_entry->{text} );
+					if ( $uid ) {
+						$uid_entry->{certified} = $uid->certified;
+						$uid_entry->{expired}   = $uid->expired;
+						$uid_entry->{revoked}   = $uid->revoked;
+					}
+				} else {
+					warn "Found key " . $key->id . " in keyring, but fingerprint didn't match!\n";
+					     "Keyring fingerprint: " . $key->fingerprint . "\n" .
+					     "List fingerprint   : " . $entry->fingerprint_ns;
 				}
 			}
 
 			push @{$entry->uids}, $uid_entry;
 		}
-	}
 
+		if ($self->progress_hook) {
+			$self->progress_hook->($self, tell($fh), $file_length, $keys_in_file, $keys_in_keyring);
+		}
+
+	}
+	
+	$self->finalizing_hook->($self) if ($self->finalizing_hook);
 	$self->_compute_digests($data);
 }
 

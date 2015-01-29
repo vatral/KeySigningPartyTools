@@ -31,8 +31,9 @@ use Getopt::Long;
 my $input_file;
 my $output_file;
 my $output_format = "PDF";
-
 my $prev_length = 0;
+my ($list_total_keys, $keyring_total_keys);
+
 
 GetOptions(
 	"output|o=s" => \$output_file,
@@ -56,8 +57,20 @@ $gpg->fully_trusted_keys([ @{$cf->data->{secret_keys}}, @{$cf->data->{trusted_ke
 
 $| = 1;
 my $list = new KeySigningParty::KeyList::FOSDEM(KSPGPG => $gpg);
+$list->starting_hook(\&starting);
+$list->progress_hook(\&list_progress);
+$list->finalizing_hook(\&list_finalizing);
 $list->load($input_file);
 
+
+if ( $list_total_keys > $keyring_total_keys ) {
+	print "\n";
+	print "$list_total_keys keys were read from the list, but only $keyring_total_keys were found in your keyring.\n";
+	print "For best performance, it is recommended that you download and import\n";
+	print "the keyring for the meeting.\n\n";
+	print "This will allow the program to include photos and to check which keys\n";
+	print "have already been signed\n\n";
+}
 my $qr   = new KeySigningParty::VisualHash::QRCode();
 my $vash = new KeySigningParty::VisualHash::Vash();
 my @hashes = ( $qr );
@@ -84,6 +97,7 @@ status("Done.");
 print "\n";
 
 
+
 sub starting {
 	status("Starting...");
 }
@@ -95,6 +109,19 @@ sub progress {
 }
 sub finalizing {
 	status("Finalizing...");
+}
+
+sub list_progress {
+	my ($list, $position, $total, $infile, $inring) = @_;
+	my $percent = sprintf("%.2f", (100/$total)*$position);
+	status("Parsing list... ${percent}% done, $infile keys read from list, $inring found in keyring");
+
+	$list_total_keys = $infile;
+	$keyring_total_keys = $inring;
+}
+
+sub list_finalizing {
+	print "\n";
 }
 
 sub status {

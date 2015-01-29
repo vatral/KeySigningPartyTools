@@ -25,7 +25,7 @@ use KeySigningParty::GPG::Key::UID::Signature;
 
 use version; our $VERSION = qv('0.0.3');
 
-has 'parent_key'  => ( is => 'rw', isa => 'KeySigningParty::GPG::Key');
+has 'parent_key'  => ( is => 'rw', isa => 'KeySigningParty::GPG::Key', weak_ref => 1);
 
 has 'num'         => ( is => 'rw', isa => 'Num' );
 has 'id'          => ( is => 'rw', isa => Hex );
