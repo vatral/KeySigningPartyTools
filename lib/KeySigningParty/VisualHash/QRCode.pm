@@ -26,6 +26,7 @@ extends 'KeySigningParty::VisualHash';
 
 has 'qrencode_binary'  => ( is => 'rw', isa => 'Str', default => '/usr/bin/qrencode' );
 has 'error_correction' => ( is => 'rw', isa => 'Str', default => 'L' );
+has 'size'             => ( is => 'rw', isa => 'Int', default => 16 );
 
 # Other recommended modules (uncomment to use):
 #  use IO::Prompt;
@@ -44,7 +45,7 @@ sub get_image {
 	if ( ! -f $filename ) {	
 		system($self->qrencode_binary,
 		       "-o", $filename, 
-		       "-s", "1",
+		       "-s", $self->size,
 		       "-l", $self->error_correction,
 		       "-m", "1",
 		       "-i", 
