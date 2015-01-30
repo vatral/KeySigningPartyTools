@@ -21,6 +21,7 @@ use FindBin;
 use lib "$FindBin::Bin/../lib";
 use KeySigningParty::KeyList::FOSDEM;
 use KeySigningParty::GPG;
+use KeySigningParty::StatusLine;
 use Barcode::ZBar;
 use Getopt::Long;
 
@@ -69,8 +70,13 @@ my @write_buf = ();
 my $write_count = 0;
 my $espeak;
 
+my $status = new KeySigningParty::StatusLine( twirling_baton => 1 );
 my $gpg = new KeySigningParty::GPG();
-my $list = new KeySigningParty::KeyList::FOSDEM( KSPGPG => $gpg );
+my $list = new KeySigningParty::KeyList::FOSDEM( KSPGPG => $gpg, check_uids => 0 );
+$list->starting_hook(\&list_starting);
+$list->progress_hook(\&list_progress);
+$list->finalizing_hook(\&list_finalizing);
+
 $list->load($input_file);
 
 
@@ -238,3 +244,21 @@ sub spoken_name {
 	$name =~  s/<.*>//g; # Remove email address
 	return $name;
 }
+
+sub list_starting {
+	$status->text("Starting...");	
+}
+
+sub list_progress {
+	my ($list, $position, $total, $infile, $inring) = @_;
+	my $percent = sprintf("%.2f", (100/$total)*$position);
+	$status->text("Parsing list... ${percent}% done, $infile keys read from list, $inring found in keyring");
+
+	#$list_total_keys = $infile;	
+	# $keyring_total_keys = $inring;
+}
+
+sub list_finalizing {
+	$status->newline;
+}
+

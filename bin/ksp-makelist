@@ -25,13 +25,13 @@ use KeySigningParty::VisualHash::QRCode;
 use KeySigningParty::VisualHash::Vash;
 use KeySigningParty::ConfigFile;
 use KeySigningParty::GPG;
+use KeySigningParty::StatusLine;
 
 use Getopt::Long;
 
 my $input_file;
 my $output_file;
 my $output_format = "PDF";
-my $prev_length = 0;
 my ($list_total_keys, $keyring_total_keys);
 
 
@@ -56,6 +56,8 @@ $gpg->fully_trusted_keys([ @{$cf->data->{secret_keys}}, @{$cf->data->{trusted_ke
 
 
 $| = 1;
+
+my $status = new KeySigningParty::StatusLine( twirling_baton => 1 );
 my $list = new KeySigningParty::KeyList::FOSDEM(KSPGPG => $gpg);
 $list->starting_hook(\&starting);
 $list->progress_hook(\&list_progress);
@@ -72,12 +74,12 @@ if ( $list_total_keys > $keyring_total_keys ) {
 	print "have already been signed\n\n";
 }
 my $qr   = new KeySigningParty::VisualHash::QRCode();
-my $vash = new KeySigningParty::VisualHash::Vash();
+#my $vash = new KeySigningParty::VisualHash::Vash();
 my @hashes = ( $qr );
 
-if ( -f $vash->vash_jar ) {
-	push @hashes, $vash;
-}
+#if ( -f $vash->vash_jar ) {
+#	push @hashes, $vash;
+#}
 
 my $out = create_object("KeySigningParty::Output::$output_format", "KeySigningParty::Output");
 
@@ -93,47 +95,38 @@ $out->starting_hook( \&starting );
 $out->progress_hook( \&progress );
 $out->finalizing_hook( \&finalizing );
 $out->generate($output_file);
-status("Done.");
+print STDERR "\n";
+print STDERR "Done.\n";
+
 print "\n";
 
 
 
 sub starting {
-	status("Starting...");
+	$status->text("Starting...");
 }
 sub progress {
 	my ($pdf, $page_num, $pages_total, $line_num, $lines_total) = @_;
 	my $percent = sprintf("%.2f", (100/$lines_total) * $line_num);
 	
-	status("Processing page $page_num of $pages_total, line $line_num of $lines_total, ${percent}% done.");
+	$status->text("Processing page $page_num of $pages_total, line $line_num of $lines_total, ${percent}% done.");
 }
 sub finalizing {
-	status("Finalizing...");
+	$status->newline;
+	print STDERR "Finalizing...";
 }
 
 sub list_progress {
 	my ($list, $position, $total, $infile, $inring) = @_;
 	my $percent = sprintf("%.2f", (100/$total)*$position);
-	status("Parsing list... ${percent}% done, $infile keys read from list, $inring found in keyring");
+	$status->text("Parsing list... ${percent}% done, $infile keys read from list, $inring found in keyring");
 
 	$list_total_keys = $infile;
 	$keyring_total_keys = $inring;
 }
 
 sub list_finalizing {
-	print "\n";
-}
-
-sub status {
-	my $text = shift;
-	print "\r$text";
-	
-	if ( length($text) < $prev_length ) {
-		print " " x ( $prev_length - length($text) );
-		print "\r$text";
-	}
-	
-	$prev_length = length($text);
+	$status->newline;
 }
 
 sub create_object {
