@@ -103,11 +103,13 @@ sub load {
 				my $key = $self->KSPGPG->get( $entry->fingerprint_ns );
 
 				if ( $key->check_fingerprint( $entry->fingerprint_ns ) ) {
-					my $uid = $key->find_uid( $uid_entry->{text} );
-					if ( $uid ) {
-						$uid_entry->{certified} = $uid->certified;
-						$uid_entry->{expired}   = $uid->expired;
-						$uid_entry->{revoked}   = $uid->revoked;
+					if ( $self->check_uids ) {
+						my $uid = $key->find_uid( $uid_entry->{text} );
+						if ( $uid ) {
+							$uid_entry->{certified} = $uid->certified;
+							$uid_entry->{expired}   = $uid->expired;
+							$uid_entry->{revoked}   = $uid->revoked;
+						}
 					}
 				} else {
 					warn "Found key " . $key->id . " in keyring, but fingerprint didn't match!\n";

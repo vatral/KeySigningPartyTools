@@ -25,9 +25,11 @@ use Encode qw(encode);
 use KeySigningParty::GPG;
 
 use version; our $VERSION = qv('0.0.3');
-has 'entries' => ( is => 'rw', isa => 'ArrayRef[KeySigningParty::KeyList::Entry]', default => sub { [ ] } );
-has 'digests' => ( is => 'rw', isa => 'HashRef[Str]', default => sub { { } } );
-has 'KSPGPG'  => ( is => 'rw', isa => 'KeySigningParty::GPG' );
+has 'entries'    => ( is => 'rw', isa => 'ArrayRef[KeySigningParty::KeyList::Entry]', default => sub { [ ] } );
+has 'digests'    => ( is => 'rw', isa => 'HashRef[Str]', default => sub { { } } );
+has 'KSPGPG'     => ( is => 'rw', isa => 'KeySigningParty::GPG' );
+has 'check_uids' => ( is => 'rw', isa => 'Bool', default => 1 );
+
 
 has 'starting_hook' => ( is => 'rw', isa => 'CodeRef' );
 has 'progress_hook'   => ( is => 'rw', isa => 'CodeRef' );
