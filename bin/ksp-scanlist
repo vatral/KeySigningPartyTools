@@ -70,7 +70,7 @@ my $write_count = 0;
 my $espeak;
 
 my $gpg = new KeySigningParty::GPG();
-my $list = new KeySigningParty::KeyList::FOSDEM();
+my $list = new KeySigningParty::KeyList::FOSDEM( KSPGPG => $gpg );
 $list->load($input_file);
 
 
