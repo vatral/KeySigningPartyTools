@@ -36,6 +36,10 @@ has 'uids'        => ( is => 'rw', isa => 'ArrayRef[KeySigningParty::GPG::Key::U
 has 'fingerprint' => ( is => 'rw', isa => Hex, default => '' );
 
 
+sub name {
+	my ($self) = @_;
+	return $self->uids->[0]->text;
+}
 
 sub certified {
 	# We are certified if all IDs are, 

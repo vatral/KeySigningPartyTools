@@ -168,7 +168,7 @@ sub handle_fingerprint {
 
 	foreach my $key ( @{$list->entries}) {
 		if ( $key->fingerprint_ns eq $fp ) {
-			my $name = $key->uids->[0];
+			my $name = $key->name;
 			my $bad;
 
 			if ( exists $scanned{$fp} ) {

@@ -55,8 +55,14 @@ sub is_complete {
 
 sub as_string {
 	my $self = shift;
-	return "[" . $self->number . "] " . $self->id . "  " . $self->uids->[0];
+	return "[" . $self->number . "] " . $self->id . "  " . $self->uids->[0]->{text};
 }
+
+sub name {
+	my $self = shift;
+	return $self->uids->[0]->{text};
+}
+
 
 
 # Other recommended modules (uncomment to use):
