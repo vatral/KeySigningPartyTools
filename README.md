@@ -10,7 +10,6 @@ List of tools
 * ksp-makelist: create a better formatted list in PDF format by reading a FOSDEM key list.
 * ksp-import-keys: automatically import signatures from a mailbox. Supports mbox files, IMAP and POP3 servers.
 * ksp-scanlist: scan QR codes from a list created by ksp-makelist, and generate a list of keys to sign.
-* ksp-check-fingerprints: check whether the fingerprints scanned from the list match the ones from the keyring
 * ksp-list: process lists: check signatures, sign keys, mail signed keys
 
 Requirements
@@ -64,4 +63,4 @@ Hold the printed list in front of a camera, and scan the keys. Close the camera 
 
 Check whether the fingerprints in the GPG key ring match the ones that were scanned:
 
-    $ bin/ksp-check-fingerprints selected_keys.txt
+    $ bin/ksp-list --check selected_keys.txt
