@@ -200,7 +200,7 @@ sub _build_keys_hash {
 #			die Dumper( [ $cur_key ] );
 		}
 
-		if ( $type eq "fpr" ) {
+		if ( $type eq "fpr" and !$cur_key->fingerprint) {
 			$cur_key->fingerprint($data);
 		}
 	}
