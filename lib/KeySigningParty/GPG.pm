@@ -125,13 +125,13 @@ sub _sanitize_key {
 
 sub _build_keys {
 	my ($self) = @_;
-	my @keys = keys $self->keys_hash;
+	my @keys = keys %{ $self->keys_hash };
 	return \@keys;
 }
 
 sub _build_secret_keys {
 	my ($self) = @_;
-	my @keys = keys $self->secret_keys_hash;
+	my @keys = keys %{ $self->secret_keys_hash };
 	return \@keys;
 }
 
