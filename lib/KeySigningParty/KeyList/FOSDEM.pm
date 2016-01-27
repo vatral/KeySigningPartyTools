@@ -74,10 +74,39 @@ sub load {
 			$entry->number($1);
 		} elsif ( $line =~ /^pub   (.*?)$/ ) {
 			my $tmp = $1;
-			$tmp =~ /(\d+)([A-Z])\/([0-9A-F]+)/;
-			$entry->size( $1 );
-			$entry->keytype( $2 );
-			$entry->id( $3 );
+			my $keydate;
+			my ($keyinfo, $keyid) = split(/\//, $tmp);
+			
+			($keyid, $keydate) = split(/\s+/, $keyid);
+
+			if ( $keyinfo eq "ed25519" ) {
+				# Special handling for ed25519
+				# The number is not the key size
+
+				$entry->keytype( $keyinfo );
+				$entry->size(0);
+			} elsif ( $keyinfo =~ /^(\d+)([[:alpha:]])$/ ) {
+				# Old format
+				# Example: 4096R
+
+				$entry->size($1);
+
+				if ( $2 eq "R" ) {
+					$entry->keytype("RSA");
+				} elsif ( $2 eq "D" ) {
+					$entry->keytype("DSA");
+				} else {
+					$entry->keytype($2);
+				}
+
+			} elsif ( $keyinfo =~ /^([[:alpha:]]+)(\d+)$/ ) {
+				# New format
+				# Example: rsa4096
+				$entry->keytype(uc($1));
+				$entry->size($2);
+			}
+
+			$entry->id( $keyid );
 
 			$keys_in_file++;
 		} elsif ( $line =~ /Key fingerprint = ([0-9A-F ]+)$/ ) {
