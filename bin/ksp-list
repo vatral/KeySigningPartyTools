@@ -211,7 +211,7 @@ while( my $line = <$in> ) {
 			$args{signed_key}    = $armored;
 			$args{signed_key_id} = $uid;
 
-			push $args{cc}, @addrs;
+			push @{$args{cc}}, @addrs;
 
 
 			eval {

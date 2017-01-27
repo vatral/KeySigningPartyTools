@@ -56,7 +56,7 @@ sub _gen_message {
 	local $ENV{LC_ALL} = 'C';
 
 	if ( $self->copy_to_self ) {
-		push $cc, $self->from;
+		push @$cc, $self->from;
 	}
 
 	if ( $self->only_to_self ) {
